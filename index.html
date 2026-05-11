@@ -403,6 +403,29 @@ html,body{height:100%;width:100%;overflow:hidden;font-family:'Inter',sans-serif;
 }
 .corr-label.affected{border-color:rgba(224,48,32,0.7);color:#ff8070;}
 
+/* CLIMA LEGEND (only visible in clima mode) */
+#clima-legend{
+  display:none;position:absolute;bottom:100px;right:14px;
+  background:rgba(15,15,17,0.82);
+  -webkit-backdrop-filter:blur(24px) saturate(180%);
+  backdrop-filter:blur(24px) saturate(180%);
+  border:1px solid var(--border);border-radius:6px;
+  padding:8px 11px;z-index:500;
+  font-family:'Inter',sans-serif;color:rgba(255,255,255,0.85);
+  box-shadow:0 4px 16px rgba(0,0,0,0.4);
+}
+#clima-legend.on{display:block;}
+.cl-row{display:flex;align-items:center;gap:8px;margin-bottom:5px;}
+.cl-row:last-child{margin-bottom:0;}
+.cl-label{font-size:9px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:rgba(255,255,255,0.6);width:50px;}
+.cl-bar{height:6px;width:120px;border-radius:2px;}
+.cl-bar.rain{background:linear-gradient(to right, rgba(58,168,255,0.08), rgba(58,168,255,0.85));}
+.cl-bar.wind{background:linear-gradient(to right, rgba(255,149,48,0.08), rgba(255,149,48,0.85));}
+.cl-marks{display:flex;justify-content:space-between;font-size:9px;color:rgba(255,255,255,0.45);width:120px;margin-top:1px;}
+@media(max-width:760px){
+  #clima-legend{bottom:calc(56px + env(safe-area-inset-bottom, 0px) + 90px);right:8px;}
+}
+
 /* FLOATING HEADLINE (mobile, always visible above map) */
 #float-headline{
   display:none;
@@ -722,6 +745,23 @@ html,body{height:100%;width:100%;overflow:hidden;font-family:'Inter',sans-serif;
     <div id="mapwrap">
       <div id="map"></div>
       <div id="map-overlay"></div>
+      <!-- Clima legend (only shown in clima mode) -->
+      <div id="clima-legend">
+        <div class="cl-row">
+          <span class="cl-label">Lluvia</span>
+          <div>
+            <div class="cl-bar rain"></div>
+            <div class="cl-marks"><span>0</span><span>10</span><span>30</span><span>40+ mm</span></div>
+          </div>
+        </div>
+        <div class="cl-row">
+          <span class="cl-label">Viento</span>
+          <div>
+            <div class="cl-bar wind"></div>
+            <div class="cl-marks"><span>0</span><span>30</span><span>50</span><span>70+ km/h</span></div>
+          </div>
+        </div>
+      </div>
       <!-- Mobile floating headline -->
       <div id="float-headline">
         <div class="fh-week"><span class="fh-pulse"></span><span id="fh-week">ESTA SEMANA · 16 MAY 2026</span></div>
@@ -922,9 +962,12 @@ let highlightedCorridors = new Set();
 let mode = 'protestas';
 let weatherData = null;
 let weatherInflight = null;
+let corridorWeatherData = null;
+let corridorWeatherInflight = null;
 let savedProtestasSemanas = null;
 let savedProtestasDates = null;
 const CLIMA_THRESHOLDS = { yellowRain:5, redRain:30, yellowWind:40, redWind:60 };
+const CLIMA_SCALE = { rainNorm:40, windNorm:70 }; // mm and km/h that map to "max intensity"
 
 function climaLevelFromDay(rainMm, windKmh){
   if(rainMm > CLIMA_THRESHOLDS.redRain || windKmh > CLIMA_THRESHOLDS.redWind) return 2;
@@ -949,6 +992,34 @@ function loadWeather(){
   }).catch(e => { console.warn('Open-Meteo failed:', e); weatherInflight = null; return null; });
   return weatherInflight;
 }
+function loadCorridorWeather(){
+  if(corridorWeatherData) return Promise.resolve(corridorWeatherData);
+  if(corridorWeatherInflight) return corridorWeatherInflight;
+  // Flatten waypoints, remembering which (corridor, point) each one is
+  const wpFlat = [];
+  CORRIDORS.forEach((c, ci) => c.wp.forEach((p, pi) => wpFlat.push({ci, pi, lat:p[0], lng:p[1]})));
+  const lats = wpFlat.map(w => w.lat).join(',');
+  const lngs = wpFlat.map(w => w.lng).join(',');
+  const url = 'https://api.open-meteo.com/v1/forecast?latitude='+lats+'&longitude='+lngs
+    +'&daily=precipitation_sum,wind_speed_10m_max'
+    +'&timezone=America%2FMexico_City&forecast_days=7';
+  corridorWeatherInflight = fetch(url).then(r=>r.json()).then(data => {
+    const arr = Array.isArray(data) ? data : [data];
+    corridorWeatherData = CORRIDORS.map(c => c.wp.map(() => null));
+    arr.forEach((fc, idx) => {
+      const w = wpFlat[idx];
+      corridorWeatherData[w.ci][w.pi] = (fc && fc.daily) ? fc.daily : null;
+    });
+    corridorWeatherInflight = null;
+    return corridorWeatherData;
+  }).catch(e => { console.warn('Corridor weather failed:', e); corridorWeatherInflight = null; return null; });
+  return corridorWeatherInflight;
+}
+function climaIntensityAt(rainMm, windKmh){
+  const rainNorm = Math.min(1, (rainMm||0) / CLIMA_SCALE.rainNorm);
+  const windNorm = Math.min(1, (windKmh||0) / CLIMA_SCALE.windNorm);
+  return { rainNorm, windNorm, intensity: Math.max(rainNorm, windNorm), useWind: windNorm > rainNorm && (windKmh||0) > 30 };
+}
 async function setMode(newMode){
   if(mode === newMode) return;
   document.querySelectorAll('#mode-toggle button').forEach(b => b.classList.toggle('on', b.dataset.mode === newMode));
@@ -961,7 +1032,7 @@ async function setMode(newMode){
     mode = 'clima';
     if(brand) brand.textContent = 'Clímometro';
     document.getElementById('hl-text').innerHTML = '<div class="hl-secondary">Cargando pronóstico…</div>';
-    const data = await loadWeather();
+    const [data] = await Promise.all([loadWeather(), loadCorridorWeather()]);
     if(!data){
       document.getElementById('hl-text').innerHTML = '<div class="hl-secondary" style="color:var(--red)">No se pudo cargar el pronóstico. Reintenta.</div>';
       return;
@@ -993,6 +1064,8 @@ async function setMode(newMode){
     }
   }
   recomputeZMStats();
+  const legend = document.getElementById('clima-legend');
+  if(legend) legend.classList.toggle('on', mode === 'clima');
   if(map) refreshMap();
   renderAll();
   if(sel) showDet(sel);
@@ -1159,6 +1232,23 @@ function lvlMeta(n){
   return['NIVEL 0','#3ecf6e','rgba(62,207,110,0.12)'];
 }
 function buildTooltipHTML(z){
+  if(mode === 'clima'){
+    const rain = (z._climaRain && z._climaRain[wk] != null) ? z._climaRain[wk] : null;
+    const wind = (z._climaWind && z._climaWind[wk] != null) ? z._climaWind[wk] : null;
+    const { intensity, useWind } = climaIntensityAt(rain||0, wind||0);
+    const climaLbl = intensity >= 0.75 ? 'Disrupción alta'
+                   : intensity >= 0.35 ? 'Retrasos probables'
+                   : intensity >= 0.05 ? 'Afectación menor'
+                   : 'Sin afectación';
+    const col = intensity < 0.05 ? '#3ecf6e' : (useWind ? '#ff9530' : '#3aa8ff');
+    const detail = [
+      rain!=null ? rain.toFixed(1)+' mm lluvia' : null,
+      wind!=null ? wind.toFixed(0)+' km/h viento' : null
+    ].filter(Boolean).join(' · ');
+    return '<div class="tn">'+z.zm+'</div><div class="ts">'+z.estado+'</div>'
+      + '<div class="tl" style="color:'+col+'">'+climaLbl.toUpperCase()+'</div>'
+      + '<div class="ti">'+detail+'</div>';
+  }
   const n=z.semanas[wk],[lbl,col]=lvlMeta(n);
   return '<div class="tn">'+z.zm+'</div><div class="ts">'+z.estado+'</div><div class="tl" style="color:'+col+'">'+lbl+'</div><div class="ti">'+z.alertas+' sem. en alerta · '+(z.pob/1e6).toFixed(1)+'M hab.</div>';
 }
@@ -1199,10 +1289,42 @@ function smoothLine(points, segments) {
 }
 
 function refreshCorridors(){
-  // Corridors are no longer drawn on the map — they live in the 'Corredores' panel as a list.
-  // Layers cleared in case toggles re-add anything.
   if(corridorLayer) corridorLayer.clearLayers();
   if(corridorLabelLayer) corridorLabelLayer.clearLayers();
+  // Outside clima mode, corridors live in the side panel as a list and stay off the map.
+  if(mode !== 'clima' || !layerVis.corr) return;
+  CORRIDORS.forEach((c, ci) => {
+    // Faint base outline so the user can read the federal network even where no weather hits.
+    L.polyline(c.wp, {color:'#fff', weight:1.3, opacity:0.16, interactive:false, pane:'climaCorridor'}).addTo(corridorLayer);
+    const segWeather = corridorWeatherData && corridorWeatherData[ci];
+    if(!segWeather) return;
+    for(let pi = 0; pi < c.wp.length - 1; pi++){
+      const a = c.wp[pi], b = c.wp[pi+1];
+      const wa = segWeather[pi], wb = segWeather[pi+1];
+      if(!wa || !wb) continue;
+      const rainA = (wa.precipitation_sum && wa.precipitation_sum[wk]) || 0;
+      const rainB = (wb.precipitation_sum && wb.precipitation_sum[wk]) || 0;
+      const windA = (wa.wind_speed_10m_max && wa.wind_speed_10m_max[wk]) || 0;
+      const windB = (wb.wind_speed_10m_max && wb.wind_speed_10m_max[wk]) || 0;
+      const avgRain = (rainA + rainB) / 2;
+      const avgWind = (windA + windB) / 2;
+      const { intensity, useWind } = climaIntensityAt(avgRain, avgWind);
+      if(intensity < 0.05) continue;
+      const color = useWind ? '#ff9530' : '#3aa8ff';
+      const weight = 2 + intensity * 6;
+      const opacity = 0.55 + intensity * 0.4;
+      const segLine = L.polyline([a, b], {color, weight, opacity, interactive:true, pane:'climaCorridor'});
+      const lvl = (intensity >= 0.75) ? 'Disrupción alta' : (intensity >= 0.35) ? 'Retrasos probables' : 'Afectación menor';
+      segLine.bindTooltip(
+        '<div class="tn">Corredor '+c.id+'</div>'+
+        '<div class="ts">'+c.name+'</div>'+
+        '<div class="tl" style="color:'+color+'">'+lvl.toUpperCase()+'</div>'+
+        '<div class="ti">'+avgRain.toFixed(1)+' mm · viento '+avgWind.toFixed(0)+' km/h</div>',
+        {direction:'top'}
+      );
+      segLine.addTo(corridorLayer);
+    }
+  });
 }
 
 function refreshHex(){
@@ -1212,6 +1334,7 @@ function refreshHex(){
   zmLabelLayer.clearLayers();
   selectedLayer.clearLayers();
   if(!layerVis.hex) return;
+  if(mode === 'clima'){ refreshHexClima(); return; }
   const RING_DEFS=[{km:60,op:0.05},{km:42,op:0.13},{km:28,op:0.25},{km:18,op:0.45},{km:10,op:0.72},{km:5,op:0.92}];
   const zoom = map.getZoom();
   ZONAS.forEach(z => {
@@ -1233,6 +1356,39 @@ function refreshHex(){
     if(layerVis.labels && ((n>0 && zoom>=6) || zoom>=8)){
       const cls = n===2?'alert-2':n===1?'alert-1':'';
       L.marker([z.lat,z.lng], {icon: L.divIcon({className:'', html:'<div class="zm-label '+cls+'">'+z.zm+'</div>', iconSize:null, iconAnchor:[0,-12]}), interactive:false, keyboard:false}).addTo(zmLabelLayer);
+    }
+  });
+  if(sel){
+    L.polygon(hexagonLatLng(sel.lat,sel.lng,65), {color:'rgba(255,255,255,0.5)', weight:1.5, fill:false, interactive:false}).addTo(selectedLayer);
+  }
+}
+function refreshHexClima(){
+  // Smooth, continuous heatmap-style blobs. Opacity scales with intensity;
+  // colour swaps from blue (rain-dominant) to orange (wind-dominant).
+  const RINGS = [{km:90,baseOp:0.04},{km:65,baseOp:0.08},{km:45,baseOp:0.15},{km:28,baseOp:0.26},{km:17,baseOp:0.40},{km:9,baseOp:0.58}];
+  const zoom = map.getZoom();
+  ZONAS.forEach(z => {
+    const rain = (z._climaRain && z._climaRain[wk] != null) ? z._climaRain[wk] : 0;
+    const wind = (z._climaWind && z._climaWind[wk] != null) ? z._climaWind[wk] : 0;
+    const { intensity, useWind } = climaIntensityAt(rain, wind);
+    if(intensity < 0.05){
+      const dot = L.circleMarker([z.lat,z.lng], {radius:3, color:'rgba(255,255,255,0.25)', weight:1, fillColor:'#fff', fillOpacity:0.5, interactive:true});
+      dot.bindTooltip(buildTooltipHTML(z), {direction:'top',offset:[0,-4]});
+      dot.on('click', () => doSelect(z));
+      dot.addTo(dotsLayer);
+    } else {
+      const baseColor = useWind ? '#ff9530' : '#3aa8ff';
+      RINGS.forEach(ring => {
+        const op = ring.baseOp * intensity;
+        if(op < 0.02) return;
+        const poly = L.polygon(hexagonLatLng(z.lat,z.lng,ring.km), {color:'transparent', weight:0, fillColor:baseColor, fillOpacity:op, interactive:true});
+        poly.bindTooltip(buildTooltipHTML(z), {direction:'top',offset:[0,-4]});
+        poly.on('click', () => doSelect(z));
+        poly.addTo(hexLayer);
+      });
+    }
+    if(layerVis.labels && ((intensity>0.25 && zoom>=6) || zoom>=8)){
+      L.marker([z.lat,z.lng], {icon: L.divIcon({className:'', html:'<div class="zm-label">'+z.zm+'</div>', iconSize:null, iconAnchor:[0,-12]}), interactive:false, keyboard:false}).addTo(zmLabelLayer);
     }
   });
   if(sel){
@@ -1482,6 +1638,10 @@ try {
   map.getContainer().classList.add('style-dark');
 
   L.control.zoom({position: 'bottomright'}).addTo(map);
+
+  // Custom pane so clima-mode corridor segments stay above the heatmap blobs
+  map.createPane('climaCorridor');
+  map.getPane('climaCorridor').style.zIndex = 450;
 
   // Layer groups (order matters for z-index)
   corridorLayer = L.layerGroup().addTo(map);
