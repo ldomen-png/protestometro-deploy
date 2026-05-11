@@ -1,0 +1,1369 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Protestómetro MX — Aleph</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+/* ── ALEPH TOKENS ─────────────────────────────────────────── */
+:root{
+  --aleph-yellow:#e4c249;
+  --aleph-yellow-soft:rgba(228,194,73,0.12);
+  --aleph-yellow-mid:rgba(228,194,73,0.35);
+  --bg-rail:rgba(18,18,18,0.62);
+  --bg-rail-solid:#121212;
+  --bg-panel:rgba(28,28,30,0.62);
+  --bg-panel-solid:#1c1c1e;
+  --bg-panel-hover:rgba(255,255,255,0.05);
+  --bg-input:rgba(20,20,22,0.85);
+  --bg-header:rgba(15,15,17,0.65);
+  --border:rgba(255,255,255,0.10);
+  --border-strong:rgba(255,255,255,0.18);
+  --text:#fff;
+  --text-muted:rgba(255,255,255,0.6);
+  --text-dim:rgba(255,255,255,0.4);
+  --green:#325b4b;
+  --green-text:#88c4a8;
+  --red:#e03020;
+  --red-deep:#3a2222;
+  --red-text:#d97570;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{height:100%;width:100%;overflow:hidden;font-family:'Inter',sans-serif;background:#0a0a0a;color:var(--text);touch-action:pan-x pan-y;}
+
+/* ── HEADER (glassmorphism) ──────────────────────────────── */
+#header{
+  height:54px;background:var(--bg-header);
+  -webkit-backdrop-filter:blur(24px) saturate(180%);
+  border-bottom:1px solid var(--border);
+  display:flex;align-items:center;padding:0 16px;gap:12px;
+  flex-shrink:0;z-index:2300;position:relative;
+}
+.brand{display:flex;align-items:center;gap:0;flex-shrink:0;margin-right:8px;}
+.brand-logo-img{height:24px;width:auto;display:block;flex-shrink:0;}
+.brand-divider{width:1px;height:20px;background:rgba(255,255,255,0.18);margin:0 14px;}
+.brand-product{
+  font-size:12px;font-weight:500;color:rgba(255,255,255,0.65);
+  text-transform:uppercase;letter-spacing:0.12em;
+}
+#header-spacer{flex:1;}
+#hamburger{
+  width:32px;height:32px;border:1px solid var(--border);border-radius:5px;
+  display:flex;align-items:center;justify-content:center;cursor:pointer;
+  background:var(--bg-input);touch-action:manipulation;flex-shrink:0;
+}
+#hamburger:hover{background:rgba(255,255,255,0.06);}
+#hamburger span{display:block;width:14px;height:1.5px;background:#fff;position:relative;}
+#hamburger span::before,#hamburger span::after{
+  content:'';position:absolute;left:0;width:14px;height:1.5px;background:#fff;
+}
+#hamburger span::before{top:-5px;}
+#hamburger span::after{top:5px;}
+
+#hamburger-menu{
+  position:fixed;top:58px;right:14px;
+  background:rgba(28,28,30,0.85);
+  -webkit-backdrop-filter:blur(24px) saturate(180%);
+  border:1px solid var(--border-strong);border-radius:8px;width:300px;
+  display:none;flex-direction:column;z-index:2400;
+  box-shadow:0 8px 32px rgba(0,0,0,0.6);overflow:hidden;
+}
+#hamburger-menu.open{display:flex;}
+.hm-section{padding:14px 16px;border-bottom:1px solid var(--border);}
+.hm-section:last-child{border-bottom:none;}
+.hm-title{font-size:10px;font-weight:500;color:var(--text-dim);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:6px;}
+.hm-body{font-size:12px;color:rgba(255,255,255,0.78);line-height:1.55;}
+.hm-link{color:var(--aleph-yellow);font-size:13px;text-decoration:none;font-weight:500;}
+.hm-link:hover{text-decoration:underline;}
+
+/* ── BODY layout ─────────────────────────────────────────── */
+#app{display:flex;flex-direction:column;height:100vh;width:100vw;}
+#body{flex:1;display:flex;min-height:0;overflow:hidden;}
+
+/* ── ICON RAIL (glassmorphism) ────────────────────────────── */
+#rail{
+  width:54px;flex-shrink:0;background:var(--bg-rail);
+  -webkit-backdrop-filter:blur(24px) saturate(180%);
+  border-right:1px solid var(--border);
+  display:flex;flex-direction:column;align-items:center;
+  padding:8px 0;gap:2px;z-index:50;
+}
+.rail-icon{
+  width:42px;height:42px;border-radius:6px;
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;color:rgba(255,255,255,0.55);
+  position:relative;transition:background 0.15s,color 0.15s;
+  user-select:none;touch-action:manipulation;
+}
+.rail-icon:hover{background:rgba(255,255,255,0.04);color:rgba(255,255,255,0.85);}
+.rail-icon.on{color:var(--aleph-yellow);background:rgba(228,194,73,0.10);}
+.rail-icon.on::before{
+  content:'';position:absolute;left:-1px;top:8px;bottom:8px;width:2px;
+  background:var(--aleph-yellow);border-radius:0 2px 2px 0;
+}
+.rail-icon svg{width:20px;height:20px;pointer-events:none;}
+.rail-icon svg *{pointer-events:none;}
+.rail-tooltip{
+  pointer-events:none;
+  position:absolute;left:48px;top:50%;transform:translateY(-50%);
+  background:rgba(0,0,0,0.92);color:#fff;font-size:11px;padding:5px 9px;
+  border-radius:5px;white-space:nowrap;opacity:0;
+  transition:opacity 0.12s;z-index:300;border:1px solid var(--border);
+}
+.rail-icon:hover .rail-tooltip{opacity:1;}
+
+/* ── PANEL (glassmorphism, sliding) ──────────────────────── */
+#panel{
+  width:340px;flex-shrink:0;background:var(--bg-panel);
+  -webkit-backdrop-filter:blur(24px) saturate(180%);
+  border-right:1px solid var(--border);
+  display:none;flex-direction:column;overflow:hidden;
+  z-index:2000;
+}
+#panel.open{display:flex;}
+.panel-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 16px 12px;border-bottom:1px solid var(--border);
+  flex-shrink:0;
+}
+.panel-title{font-size:15px;font-weight:600;color:#fff;}
+.panel-close{
+  width:26px;height:26px;display:flex;align-items:center;justify-content:center;
+  cursor:pointer;color:var(--text-muted);font-size:14px;border-radius:4px;
+  touch-action:manipulation;
+}
+.panel-close:hover{background:rgba(255,255,255,0.06);color:#fff;}
+.panel-body{flex:1;overflow-y:auto;touch-action:pan-y;-webkit-overflow-scrolling:touch;}
+.panel-body::-webkit-scrollbar{width:4px;}
+.panel-body::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.08);border-radius:2px;}
+
+/* Section primitive */
+.section{padding:14px 16px;border-bottom:1px solid rgba(255,255,255,0.06);}
+.section:last-child{border-bottom:none;}
+.section-t{font-size:10px;font-weight:600;color:var(--text-dim);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:10px;}
+
+/* HEADLINE (top of Resumen panel) */
+.headline{
+  padding:14px 16px;
+  background:linear-gradient(180deg,rgba(228,194,73,0.06) 0%,transparent 100%);
+  border-bottom:1px solid var(--border);
+}
+.hl-week{font-size:10px;font-weight:600;color:var(--aleph-yellow);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:10px;}
+.hl-text{font-size:14px;font-weight:400;color:rgba(255,255,255,0.92);line-height:1.45;}
+
+/* Structured headline (panel) */
+.hl-primary{display:flex;align-items:baseline;gap:10px;margin-bottom:6px;}
+.hl-big{font-size:36px;line-height:1;font-weight:700;}
+.hl-label{font-size:12px;color:rgba(255,255,255,0.75);font-weight:500;flex:1;line-height:1.3;}
+.hl-secondary{font-size:12px;color:rgba(255,255,255,0.7);line-height:1.55;margin-bottom:3px;}
+.hl-delta-title{
+  font-size:10px;font-weight:600;color:var(--text-dim);
+  letter-spacing:0.08em;text-transform:uppercase;
+  margin-top:10px;margin-bottom:5px;
+  padding-top:10px;border-top:1px solid rgba(255,255,255,0.06);
+}
+.hl-delta-row{font-size:12px;color:rgba(255,255,255,0.82);padding:2px 0;}
+.hl-red-text{color:var(--red);font-weight:600;}
+.hl-yellow-text{color:var(--aleph-yellow);font-weight:600;}
+.hl-sep{color:rgba(255,255,255,0.3);margin:0 4px;}
+
+.hl-num{font-weight:700;}
+.hl-num.red{color:var(--red);}
+.hl-num.yellow{color:var(--aleph-yellow);}
+.hl-num.green{color:#3ecf6e;}
+
+/* Mobile float headline uses compact mode */
+#float-headline .hl-num{font-weight:700;}
+
+/* WEEK NAV */
+.wnav{display:flex;align-items:center;gap:6px;margin-bottom:10px;}
+.warr{
+  width:30px;height:30px;background:rgba(255,255,255,0.06);
+  border:1px solid var(--border);border-radius:5px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  color:#aaa;font-size:13px;user-select:none;flex-shrink:0;
+  touch-action:manipulation;
+}
+.warr:hover{background:rgba(255,255,255,0.1);color:#fff;}
+.warr.disabled{opacity:0.3;cursor:not-allowed;}
+.wlbl{flex:1;text-align:center;font-size:12px;font-weight:500;color:rgba(255,255,255,0.88);}
+.wdots{display:flex;gap:2px;flex-wrap:wrap;}
+.wdot{width:12px;height:11px;border-radius:2px;cursor:pointer;opacity:.55;touch-action:manipulation;}
+.wdot:hover{opacity:.85;}
+.wdot.on{outline:1.5px solid rgba(255,255,255,0.7);outline-offset:1px;opacity:1;}
+
+/* METRICS — hierarchy */
+.metric-primary{
+  background:rgba(224,48,32,0.08);border:1px solid rgba(224,48,32,0.25);border-radius:6px;
+  padding:12px 14px;margin-bottom:8px;display:flex;align-items:baseline;justify-content:space-between;
+}
+.metric-primary.zero{background:rgba(62,207,110,0.06);border-color:rgba(62,207,110,0.22);}
+.mp-num{font-size:32px;font-weight:700;line-height:1;color:var(--red);}
+.metric-primary.zero .mp-num{color:#3ecf6e;}
+.mp-lbl{font-size:11px;color:rgba(255,255,255,0.6);font-weight:500;}
+.metric-secondary{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;}
+.ms{background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:5px;padding:8px 9px;}
+.ms-num{font-size:17px;font-weight:600;line-height:1;margin-bottom:2px;}
+.ms-lbl{font-size:9px;color:var(--text-dim);}
+
+/* CHANGES (deltas) */
+.changes-list{display:flex;flex-direction:column;gap:4px;}
+.change-row{
+  display:flex;align-items:center;gap:8px;padding:6px 10px;
+  background:rgba(255,255,255,0.025);border-radius:4px;font-size:11px;
+  cursor:pointer;border-left:2px solid transparent;touch-action:manipulation;
+}
+.change-row:hover{background:rgba(255,255,255,0.05);}
+.change-row.new,.change-row.up{border-left-color:var(--red);}
+.change-row.down,.change-row.cleared{border-left-color:#3ecf6e;}
+.change-row.cleared{opacity:0.7;}
+.change-icon{font-size:11px;font-weight:700;width:14px;text-align:center;flex-shrink:0;}
+.change-icon.up{color:var(--red);}
+.change-icon.down{color:#3ecf6e;}
+.change-name{flex:1;color:rgba(255,255,255,0.85);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.change-tag{font-size:9px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.05em;}
+.change-empty{font-size:11px;color:var(--text-dim);font-style:italic;padding:4px 0;}
+
+/* FILTERS / CHECKBOXES */
+.cbox{display:flex;align-items:center;gap:10px;padding:7px 0;cursor:pointer;touch-action:manipulation;}
+.cbox-square{
+  width:18px;height:18px;border:1.5px solid rgba(255,255,255,0.3);border-radius:3px;
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;
+  transition:all 0.1s;
+}
+.cbox.on .cbox-square{background:var(--aleph-yellow);border-color:var(--aleph-yellow);}
+.cbox.on .cbox-square::after{
+  content:'✓';color:#000;font-size:12px;font-weight:700;line-height:1;
+}
+.cbox-label{font-size:12px;color:rgba(255,255,255,0.85);}
+.cbox:hover .cbox-label{color:#fff;}
+
+/* TOGGLES (iOS-style) */
+.toggle{
+  width:42px;height:24px;background:#3a3a3a;border-radius:12px;
+  position:relative;cursor:pointer;transition:background 0.15s;flex-shrink:0;
+  touch-action:manipulation;
+}
+.toggle::after{
+  content:'';position:absolute;top:2px;left:2px;width:20px;height:20px;
+  background:#fff;border-radius:50%;transition:left 0.18s;
+  box-shadow:0 1px 3px rgba(0,0,0,0.4);
+}
+.toggle.on{background:var(--aleph-yellow);}
+.toggle.on::after{left:20px;}
+.field-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;}
+.field-label{font-size:13px;color:#fff;font-weight:500;}
+.field-sub{font-size:11px;color:var(--text-dim);margin-top:2px;}
+
+/* COUNTERS (Aleph style) */
+.counter-row{display:flex;align-items:center;justify-content:space-between;padding:7px 0;}
+.counter-label{font-size:12px;color:rgba(255,255,255,0.82);}
+.counter-pill{
+  font-size:11px;font-weight:600;padding:3px 10px;border-radius:10px;min-width:38px;text-align:center;
+}
+.counter-pill.red{background:var(--red-deep);color:var(--red-text);}
+.counter-pill.green{background:var(--green);color:var(--green-text);}
+.counter-pill.neutral{background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.6);}
+
+/* ZM LIST */
+#zm-list{padding-bottom:12px;}
+.list-hdr{
+  padding:10px 16px 4px;font-size:10px;font-weight:600;color:var(--text-dim);
+  letter-spacing:0.08em;text-transform:uppercase;position:sticky;top:0;
+  background:rgba(28,28,30,0.92);backdrop-filter:blur(24px) saturate(180%);-webkit-backdrop-filter:blur(24px) saturate(180%);
+  z-index:2;
+}
+.zmr{
+  display:flex;align-items:center;gap:10px;padding:8px 16px;cursor:pointer;
+  border-left:2px solid transparent;touch-action:manipulation;
+}
+.zmr:hover{background:rgba(255,255,255,0.04);}
+.zmr.sel{background:rgba(228,194,73,0.08);border-left-color:var(--aleph-yellow);}
+.zmr.dim{opacity:0.32;}
+.zd{width:8px;height:8px;border-radius:1px;flex-shrink:0;}
+.zn{flex:1;font-size:12px;color:rgba(255,255,255,0.85);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.zw{font-size:10px;color:var(--text-dim);flex-shrink:0;}
+
+/* HISTORY VIEW */
+.hist-row{
+  display:flex;align-items:center;gap:8px;padding:7px 16px;
+  border-bottom:1px solid rgba(255,255,255,0.03);font-size:11px;
+}
+.hist-row:hover{background:rgba(255,255,255,0.025);}
+.hist-name{flex:0 0 100px;color:rgba(255,255,255,0.85);font-size:11px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;
+  touch-action:manipulation;}
+.hist-name:hover{color:var(--aleph-yellow);}
+.hist-bars{flex:1;display:flex;gap:1px;align-items:center;height:14px;}
+.hist-bar{flex:1;height:100%;border-radius:1px;cursor:pointer;touch-action:manipulation;}
+.hist-count{font-size:10px;color:var(--text-dim);font-weight:500;min-width:22px;text-align:right;}
+
+/* CORREDORES LIST */
+.corr-row{
+  padding:11px 16px;
+  border-bottom:1px solid rgba(255,255,255,0.05);
+  cursor:default;
+}
+.corr-row:hover{background:rgba(255,255,255,0.025);}
+.corr-row-top{display:flex;align-items:center;gap:8px;margin-bottom:5px;flex-wrap:wrap;}
+.corr-id{
+  font-size:13px;font-weight:700;color:#fff;
+  background:rgba(255,255,255,0.08);
+  padding:2px 8px;border-radius:3px;
+  font-family:'Inter',sans-serif;
+  letter-spacing:0.02em;
+}
+.corr-type{
+  font-size:9px;font-weight:600;
+  padding:2px 6px;border-radius:2px;
+  letter-spacing:0.05em;
+}
+.corr-type.cuota{background:rgba(120,140,200,0.18);color:#a3b4d8;}
+.corr-type.libre{background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.6);}
+.corr-badge{
+  font-size:9px;font-weight:700;
+  padding:2px 7px;border-radius:2px;
+  letter-spacing:0.06em;
+}
+.corr-badge.red{background:var(--red-deep);color:var(--red-text);}
+.corr-badge.yellow{background:rgba(228,194,73,0.18);color:var(--aleph-yellow);}
+.corr-count{
+  margin-left:auto;
+  font-size:10px;color:var(--text-dim);font-weight:600;
+  white-space:nowrap;
+}
+.corr-name{
+  font-size:12px;color:rgba(255,255,255,0.78);
+  margin-bottom:6px;line-height:1.3;
+}
+.corr-zms{display:flex;flex-wrap:wrap;gap:4px;}
+.corr-zm{
+  font-size:10px;color:var(--aleph-yellow);font-weight:500;
+  background:rgba(228,194,73,0.10);
+  border:1px solid rgba(228,194,73,0.25);
+  padding:2px 7px;border-radius:3px;
+  cursor:pointer;touch-action:manipulation;
+}
+.corr-zm:hover{background:rgba(228,194,73,0.18);border-color:rgba(228,194,73,0.4);}
+
+/* ── MAP ─────────────────────────────────────────────────── */
+#mapwrap{flex:1;position:relative;background:#0a0a0a;overflow:hidden;min-width:0;touch-action:none;}
+#map{position:absolute;inset:0;background:#0a0a0a;}
+.leaflet-container{background:#0a0a0a!important;font-family:'Inter',sans-serif!important;touch-action:none!important;}
+
+/* Dark mode: subtle filter + overlay, keeping map legible */
+#map-overlay{
+  position:absolute;inset:0;pointer-events:none;z-index:399;
+  background:rgba(15,25,40,0.32);mix-blend-mode:multiply;
+}
+.leaflet-tile{filter:brightness(0.85) saturate(0.75) contrast(0.95);}
+.leaflet-control-attribution{font-size:9px!important;background:rgba(0,0,0,0.6)!important;color:rgba(255,255,255,0.5)!important;}
+.leaflet-control-attribution a{color:rgba(255,255,255,0.65)!important;}
+
+/* ZM labels (DivIcon) */
+.zm-label{
+  background:rgba(8,10,14,0.88);border:1px solid rgba(255,255,255,0.15);border-radius:3px;
+  padding:2px 7px;font-size:11px;font-weight:500;color:#fff;white-space:nowrap;
+  font-family:'Inter',sans-serif;box-shadow:0 2px 6px rgba(0,0,0,0.5);pointer-events:none;
+}
+.zm-label.alert-2{border-color:rgba(224,48,32,0.6);color:#ff8070;}
+.zm-label.alert-1{border-color:rgba(228,194,73,0.6);color:#f5d066;}
+.corr-label{
+  background:rgba(8,10,14,0.88);border:1px solid rgba(255,255,255,0.12);border-radius:2px;
+  padding:1px 5px;font-size:9px;font-weight:600;color:rgba(255,255,255,0.72);
+  white-space:nowrap;font-family:'Inter',sans-serif;pointer-events:none;
+}
+.corr-label.affected{border-color:rgba(224,48,32,0.7);color:#ff8070;}
+
+/* FLOATING HEADLINE (mobile, always visible above map) */
+#float-headline{
+  display:none;
+  position:absolute;top:12px;left:12px;right:12px;
+  background:rgba(15,15,17,0.82);-webkit-backdrop-filter:blur(24px) saturate(180%);
+  border:1px solid var(--border-strong);border-radius:10px;
+  padding:10px 14px;z-index:500;
+  box-shadow:0 4px 16px rgba(0,0,0,0.4);
+}
+.fh-week{font-size:9px;font-weight:600;color:var(--aleph-yellow);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:3px;display:flex;align-items:center;gap:6px;}
+.fh-pulse{width:6px;height:6px;border-radius:50%;background:var(--aleph-yellow);box-shadow:0 0 0 0 rgba(228,194,73,0.6);animation:pulse 2s infinite;}
+.fh-text{font-size:13px;font-weight:400;color:rgba(255,255,255,0.95);line-height:1.4;}
+@keyframes pulse{
+  0%{box-shadow:0 0 0 0 rgba(228,194,73,0.6);}
+  70%{box-shadow:0 0 0 8px rgba(228,194,73,0);}
+  100%{box-shadow:0 0 0 0 rgba(228,194,73,0);}
+}
+
+/* DETAIL POPUP (when ZM is clicked) */
+#det{
+  position:absolute;bottom:16px;right:16px;width:280px;
+  background:rgba(15,15,17,0.88);-webkit-backdrop-filter:blur(24px) saturate(180%);
+  border:1px solid var(--border-strong);border-radius:8px;padding:14px;
+  display:none;z-index:1001;box-shadow:0 8px 24px rgba(0,0,0,0.5);
+}
+.dclose{position:absolute;top:8px;right:10px;background:none;border:none;color:var(--text-dim);
+  cursor:pointer;font-size:14px;touch-action:manipulation;}
+.dclose:hover{color:#fff;}
+.dn{font-size:14px;font-weight:600;margin-bottom:2px;padding-right:18px;color:#fff;}
+.ds{font-size:10px;color:var(--text-dim);margin-bottom:10px;}
+.dniv{display:inline-block;font-size:10px;font-weight:600;padding:3px 8px;border-radius:3px;margin-bottom:10px;letter-spacing:0.05em;text-transform:uppercase;}
+.dchart{display:flex;gap:2px;align-items:flex-end;height:34px;margin-bottom:10px;}
+.dbar{flex:1;border-radius:1px 1px 0 0;min-height:2px;}
+.dstats{display:flex;gap:10px;margin-bottom:10px;}
+.dsv{font-size:15px;font-weight:600;}
+.dsl{font-size:9px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.04em;}
+.dops{margin-top:8px;padding-top:8px;border-top:1px solid var(--border);}
+.dops-t{font-size:9px;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:6px;}
+.dops-row{display:flex;justify-content:space-between;font-size:11px;color:rgba(255,255,255,0.85);margin-bottom:3px;}
+.dops-row .v{font-weight:500;color:#fff;}
+.dops-row .pattern{color:var(--aleph-yellow);font-weight:500;}
+.dcorr{margin-top:8px;padding-top:8px;border-top:1px solid var(--border);}
+.dcorr-t{font-size:9px;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between;}
+.dcorr-cta{font-size:10px;color:var(--aleph-yellow);cursor:pointer;font-weight:500;text-transform:none;letter-spacing:0;touch-action:manipulation;}
+.dcorr-cta:hover{text-decoration:underline;}
+.dcorr-list{display:flex;flex-wrap:wrap;gap:3px;}
+.dcorr-tag{background:rgba(228,194,73,0.13);border:1px solid rgba(228,194,73,0.32);
+  color:var(--aleph-yellow);font-size:10px;font-weight:500;padding:2px 6px;border-radius:3px;}
+
+.leaflet-popup-content-wrapper{
+  background:rgba(15,15,17,0.92)!important;
+  -webkit-backdrop-filter:blur(24px) saturate(180%);
+  border:1px solid var(--border-strong)!important;border-radius:6px!important;
+  color:var(--text)!important;box-shadow:0 4px 16px rgba(0,0,0,0.4)!important;
+}
+.leaflet-popup-content{margin:9px 13px!important;font-family:'Inter',sans-serif!important;font-size:12px!important;}
+.leaflet-popup-tip{display:none!important;}
+.leaflet-popup-close-button{display:none!important;}
+
+/* Tooltip styling — same glassmorphism as popups */
+.leaflet-tooltip{
+  background:rgba(15,15,17,0.92)!important;
+  -webkit-backdrop-filter:blur(24px) saturate(180%);
+  border:1px solid var(--border-strong)!important;border-radius:6px!important;
+  color:var(--text)!important;
+  box-shadow:0 4px 16px rgba(0,0,0,0.5)!important;
+  font-family:'Inter',sans-serif!important;
+  font-size:12px!important;
+  padding:8px 11px!important;
+  white-space:normal!important;
+  max-width:260px!important;
+}
+.leaflet-tooltip-top:before,
+.leaflet-tooltip-bottom:before,
+.leaflet-tooltip-left:before,
+.leaflet-tooltip-right:before{display:none!important;}
+.tn{font-weight:600;font-size:13px;color:#fff;margin-bottom:2px;}
+.ts{font-size:10px;color:var(--text-dim);margin-bottom:5px;}
+.tl{font-size:10px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;}
+.ti{font-size:10px;color:rgba(255,255,255,0.3);margin-top:3px;}
+
+/* ── MOBILE ───────────────────────────────────────────────── */
+@media(max-width:760px){
+  #header{padding:0 12px;gap:8px;height:48px;}
+  .brand-divider{margin:0 10px;}
+  .brand-product{display:none;}
+  .brand-logo-img{height:20px;}
+  #hamburger{flex-shrink:0;width:30px;height:30px;}
+
+  /* Bottom navigation rail */
+  #rail{
+    width:100%;
+    height:calc(56px + env(safe-area-inset-bottom, 0px));
+    flex-direction:row;justify-content:space-around;align-items:flex-start;
+    border-right:none;border-top:1px solid var(--border);
+    position:fixed;bottom:0;left:0;right:0;
+    padding:6px 8px calc(6px + env(safe-area-inset-bottom, 0px)) 8px;
+    z-index:2100;
+  }
+  .rail-icon{flex:1;max-width:80px;height:44px;border-radius:8px;}
+  .rail-icon.on::before{
+    left:50%;top:auto;right:auto;bottom:-7px;
+    transform:translateX(-50%);
+    width:20px;height:2px;border-radius:2px 2px 0 0;
+  }
+  .rail-tooltip{display:none;}
+
+  #body{flex-direction:column;padding-bottom:calc(56px + env(safe-area-inset-bottom, 0px));}
+  #mapwrap{flex:1;min-height:0;}
+
+  /* Float headline always visible on mobile */
+  #float-headline{display:block;}
+
+  /* Panel: hidden by default, opens via rail icon */
+  #panel{
+    display:none;
+    width:100%;
+    position:fixed;
+    bottom:calc(56px + env(safe-area-inset-bottom, 0px));
+    left:0;right:0;
+    height:55vh;max-height:55vh;
+    border-right:none;border-top:1px solid var(--border-strong);
+    border-radius:14px 14px 0 0;
+    z-index:2000;
+    box-shadow:0 -8px 24px rgba(0,0,0,0.5);
+  }
+  #panel.open{display:flex;}
+
+  #panel-backdrop{
+    display:none;
+    position:fixed;top:48px;left:0;right:0;
+    bottom:calc(56px + env(safe-area-inset-bottom, 0px));
+    background:rgba(0,0,0,0.25);
+    z-index:1900;
+  }
+
+  #det{
+    right:12px;left:12px;width:auto;
+    bottom:calc(56px + env(safe-area-inset-bottom, 0px) + 12px);
+  }
+}
+</style>
+</head>
+<body>
+
+<div id="app">
+  <!-- HEADER -->
+  <header id="header">
+    <div class="brand">
+      <img class="brand-logo-img" src="data:image/png;base64,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" alt="Aleph">
+      <div class="brand-divider"></div>
+      <div class="brand-product">Protestómetro</div>
+    </div>
+    <div id="header-spacer"></div>
+    <div id="hamburger" role="button" tabindex="0"><span></span></div>
+  </header>
+
+  <div id="hamburger-menu">
+    <div class="hm-section">
+      <div class="hm-title">Acerca de</div>
+      <div class="hm-body">
+        <strong>Protestómetro MX</strong> es un sistema de inteligencia de conflictividad social desarrollado por Aleph. Monitorea protestas y manifestaciones en las 75 Zonas Metropolitanas de México con actualización semanal.
+      </div>
+    </div>
+    <div class="hm-section">
+      <div class="hm-title">Última actualización</div>
+      <div class="hm-body" id="hm-update">16 May 2026, 07:00 hrs</div>
+    </div>
+    <div class="hm-section">
+      <a href="https://alephri.com" target="_blank" class="hm-link">Visitar Aleph →</a>
+    </div>
+  </div>
+
+  <!-- BODY -->
+  <div id="body">
+    <!-- ICON RAIL -->
+    <div id="rail">
+      <div class="rail-icon" data-panel="resumen" role="button" tabindex="0">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="4" width="18" height="16" rx="2"/>
+          <path d="M3 9h18"/><path d="M9 14h6"/><path d="M9 17h4"/>
+        </svg>
+        <div class="rail-tooltip">Resumen</div>
+      </div>
+      <div class="rail-icon" data-panel="historico" role="button" tabindex="0">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="11" width="4" height="9"/>
+          <rect x="10" y="6" width="4" height="14"/>
+          <rect x="17" y="3" width="4" height="17"/>
+        </svg>
+        <div class="rail-tooltip">Histórico</div>
+      </div>
+      <div class="rail-icon" data-panel="corredores" role="button" tabindex="0">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 12h6l3-8 3 16 3-8h3"/>
+        </svg>
+        <div class="rail-tooltip">Corredores</div>
+      </div>
+      <div class="rail-icon" data-panel="capas" role="button" tabindex="0">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="m12 3 9 5-9 5-9-5 9-5z"/>
+          <path d="m3 13 9 5 9-5"/>
+        </svg>
+        <div class="rail-tooltip">Capas</div>
+      </div>
+    </div>
+
+    <!-- PANEL (3 contents) -->
+    <div id="panel">
+
+      <!-- RESUMEN: headline + week nav + metrics + changes + filterable ZM list -->
+      <div class="panel-content" data-panel="resumen" style="display:none;flex-direction:column;flex:1;min-height:0">
+        <div class="panel-header">
+          <div class="panel-title">Resumen</div>
+          <div class="panel-close" data-close role="button" tabindex="0">✕</div>
+        </div>
+        <div class="panel-body">
+          <div class="headline">
+            <div class="hl-week" id="hl-week">ESTA SEMANA</div>
+            <div class="hl-text" id="hl-text">—</div>
+          </div>
+          <div class="section">
+            <div class="section-t">Semana en análisis</div>
+            <div class="wnav">
+              <div class="warr" data-week="prev" role="button" tabindex="0">◂</div>
+              <div class="wlbl" id="wlbl-r">—</div>
+              <div class="warr" data-week="next" role="button" tabindex="0">▸</div>
+            </div>
+            <div class="wdots" id="dots-r"></div>
+          </div>
+          <div class="section">
+            <div class="section-t">Cambios vs anterior</div>
+            <div class="changes-list" id="changes-list"></div>
+          </div>
+          <div class="section" style="padding-bottom:6px;">
+            <div class="section-t">Filtrar zonas</div>
+            <div class="cbox on" data-filter="alert"><div class="cbox-square"></div><div class="cbox-label">En alerta esta semana</div></div>
+            <div class="cbox on" data-filter="historic"><div class="cbox-square"></div><div class="cbox-label">Con historial de alertas</div></div>
+            <div class="cbox" data-filter="none"><div class="cbox-square"></div><div class="cbox-label">Sin alertas</div></div>
+          </div>
+          <div id="zm-list"></div>
+        </div>
+      </div>
+
+      <!-- HISTÓRICO -->
+      <div class="panel-content" data-panel="historico" style="display:none;flex-direction:column;flex:1;min-height:0">
+        <div class="panel-header">
+          <div class="panel-title">Histórico</div>
+          <div class="panel-close" data-close role="button" tabindex="0">✕</div>
+        </div>
+        <div class="panel-body">
+          <div class="section">
+            <div style="font-size:11px;color:rgba(255,255,255,0.6);line-height:1.5;margin-bottom:8px;">
+              17 semanas monitoreadas, ordenadas por frecuencia. Click en barra para saltar a esa semana.
+            </div>
+            <div style="display:flex;gap:10px;font-size:10px;color:var(--text-dim);">
+              <span><span style="display:inline-block;width:8px;height:8px;background:var(--red);border-radius:1px;vertical-align:middle;margin-right:3px;"></span>Rojo</span>
+              <span><span style="display:inline-block;width:8px;height:8px;background:var(--aleph-yellow);border-radius:1px;vertical-align:middle;margin-right:3px;"></span>Amarillo</span>
+              <span><span style="display:inline-block;width:8px;height:8px;background:rgba(255,255,255,0.08);border:1px solid var(--border);border-radius:1px;vertical-align:middle;margin-right:3px;"></span>Sin alerta</span>
+            </div>
+          </div>
+          <div id="hist-list"></div>
+        </div>
+      </div>
+
+      <!-- CORREDORES -->
+      <div class="panel-content" data-panel="corredores" style="display:none;flex-direction:column;flex:1;min-height:0">
+        <div class="panel-header">
+          <div class="panel-title">Corredores afectados</div>
+          <div class="panel-close" data-close role="button" tabindex="0">✕</div>
+        </div>
+        <div class="panel-body">
+          <div class="section" style="padding-bottom:8px;">
+            <div style="font-size:11px;color:rgba(255,255,255,0.6);line-height:1.5;">
+              Carreteras federales que cruzan zonas en alerta esta semana. Ordenadas por número de ZMs afectadas.
+            </div>
+          </div>
+          <div id="corr-list"></div>
+        </div>
+      </div>
+
+      <!-- CAPAS -->
+      <div class="panel-content" data-panel="capas" style="display:none;flex-direction:column;flex:1;min-height:0">
+        <div class="panel-header">
+          <div class="panel-title">Capas del mapa</div>
+          <div class="panel-close" data-close role="button" tabindex="0">✕</div>
+        </div>
+        <div class="panel-body">
+          <div class="section">
+            <div class="field-row">
+              <div>
+                <div class="field-label">Hexágonos de alerta</div>
+                <div class="field-sub">Difusión de calor por nivel de protesta</div>
+              </div>
+              <div class="toggle on" data-tg="hex" role="button" tabindex="0"></div>
+            </div>
+            <div class="field-row">
+              <div>
+                <div class="field-label">Etiquetas de ZMs</div>
+                <div class="field-sub">Nombres de zonas metropolitanas al hacer zoom</div>
+              </div>
+              <div class="toggle on" data-tg="labels" role="button" tabindex="0"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="panel-backdrop"></div>
+
+    <!-- MAP -->
+    <div id="mapwrap">
+      <div id="map"></div>
+      <div id="map-overlay"></div>
+      <!-- Mobile floating headline -->
+      <div id="float-headline">
+        <div class="fh-week"><span class="fh-pulse"></span><span id="fh-week">ESTA SEMANA · 16 MAY 2026</span></div>
+        <div class="fh-text" id="fh-text">—</div>
+      </div>
+      <!-- ZM detail popup -->
+      <div id="det">
+        <button class="dclose" id="dc">✕</button>
+        <div class="dn" id="dn">—</div>
+        <div class="ds" id="ds">—</div>
+        <div class="dniv" id="dniv">—</div>
+        <div class="dchart" id="dch"></div>
+        <div class="dstats">
+          <div><div class="dsv" id="dsa">—</div><div class="dsl">Sem. alerta</div></div>
+          <div><div class="dsv" id="dsp">—</div><div class="dsl">Población</div></div>
+          <div><div class="dsv" id="dsm">—</div><div class="dsl">Nivel máx</div></div>
+        </div>
+        <div class="dops">
+          <div class="dops-t">Inteligencia operativa</div>
+          <div class="dops-row"><span>Frecuencia</span><span class="v" id="opf">—</span></div>
+          <div class="dops-row"><span>Patrón</span><span class="pattern" id="opp">—</span></div>
+          <div class="dops-row"><span>Sem. consecutivas</span><span class="v" id="opc">—</span></div>
+        </div>
+        <div class="dcorr">
+          <div class="dcorr-t">
+            <span>Carreteras que cruzan</span>
+            <span class="dcorr-cta" id="dcorr-cta">Ver en mapa →</span>
+          </div>
+          <div class="dcorr-list" id="dcorr-list"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ════════════════════════════════════════════════════════════════════════
+// DATA
+// ════════════════════════════════════════════════════════════════════════
+const SEMANAS=["2026-01-24","2026-01-31","2026-02-07","2026-02-14","2026-02-21","2026-02-28","2026-03-07","2026-03-14","2026-03-21","2026-03-28","2026-04-04","2026-04-11","2026-04-18","2026-04-25","2026-05-02","2026-05-09","2026-05-16"];
+
+const ZONAS=[{cve:1.01,zm:"Aguascalientes",estado:"Aguascalientes",pob:1044049,n_mun:3,lat:21.88,lng:-102.29,semanas:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},{cve:2.01,zm:"Ensenada",estado:"Baja California",pob:486639,n_mun:1,lat:31.87,lng:-116.6,semanas:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},{cve:2.02,zm:"Mexicali",estado:"Baja California",pob:988417,n_mun:1,lat:32.66,lng:-115.47,semanas:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},{cve:2.03,zm:"Tijuana",estado:"Baja California",pob:1840710,n_mun:3,lat:32.52,lng:-117.03,semanas:[0,0,0,0,0,1,0,1,0,1,0,0,0,0,0,0,0]},{cve:3.01,zm:"La Paz",estado:"Baja California Sur",pob:272711,n_mun:1,lat:24.14,lng:-110.31,semanas:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},{cve:4.01,zm:"Campeche",estado:"Campeche",pob:283025,n_mun:1,lat:19.84,lng:-90.52,semanas:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},{cve:5.01,zm:"La Laguna",estado:"Coahuila de Zaragoza",pob:1342195,n_mun:5,lat:25.54,lng:-103.41,semanas:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},{cve:5.02,zm:"Monclova-Frontera",estado:"Coahuila de Zaragoza",pob:363753,n_mun:4,lat:26.89,lng:-101.42,semanas:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},{cve:5.03,zm:"Piedras Negras",estado:"Coahuila de Zaragoza",pob:194293,n_mun:2,lat:28.7,lng:-100.52,semanas:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},{cve:5.04,zm:"Saltillo",estado:"Coahuila de Zaragoza",pob:923636,n_mun:3,lat:25.42,lng:-100.99,semanas:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},{cve:6.01,zm:"Colima-Villa de álvarez",estado:"Colima",pob:359392,n_mun:5,lat:19.24,lng:-103.72,semanas:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},{cve:6.02,zm:"Tecomán",estado:"Colima",pob:152790,n_mun:2,lat:18.91,lng:-103.87,semanas:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},{cve:7.01,zm:"Tapachula",estado:"Chiapas",pob:348156,n_mun:1,lat:14.9,lng:-92.26,semanas:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},{cve:7.02,zm:"Tuxtla Gutiérrez",estado:"Chiapas",pob:814436,n_mun:5,lat:16.75,lng:-93.11,semanas:[0,0,0,0,0,1,0,0,1,0,0,1,0,1,1,0,0]},{cve:7.03,zm:"San Cristóbal",estado:"Chiapas",pob:183509,n_mun:1,lat:16.74,lng:-92.64,semanas:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},{cve:8.01,zm:"Chihuahua",estado:"Chihuahua",pob:918339,n_mun:3,lat:28.63,lng:-106.07,semanas:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},{cve:8.02,zm:"Delicias",estado:"Chihuahua",pob:192797,n_mun:2,lat:31.74,lng:-106.49,semanas:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},{cve:8.03,zm:"Hidalgo del Parral",estado:"Chihuahua",pob:114596,n_mun:2,lat:26.93,lng:-105.66,semanas:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},{cve:8.04,zm:"Juárez",estado:"Chihuahua",pob:1391180,n_mun:1,lat:31.74,lng:-106.49,semanas:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0]},{cve:9.01,zm:"Valle de México",estado:"Ciudad de México",pob:20892724,n_mun:76,lat:19.43,lng:-99.13,semanas:[2,2,1,1,2,2,2,2,2,2,2,0,0,0,0,0,1]},{cve:10.01,zm:"Durango",estado:"Durango",pob:654876,n_mun:1,lat:24.02,lng:-104.66,semanas:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},{cve:11.01,zm:"Celaya",estado:"Guanajuato",pob:731667,n_mun:4,lat:21.12,lng:-101.68,semanas:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},{cve:11.02,zm:"Guanajuato",estado:"Guanajuato",pob:184239,n_mun:1,lat:21.02,lng:-101.26,semanas:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},{cve:11.03,zm:"León",estado:"Guanajuato",pob:1768193,n_mun:2,lat:21.12,lng:-101.68,semanas:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},{cve:11.04,zm:"Moroleón-Uriangato",estado:"Guanajuato",pob:113138,n_mun:2,lat:20.16,lng:-101.2,semanas:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},{cve:11.05,zm:"San Francisco del Rincón",estado:"Guanajuato",pob:199308,n_mun:2,lat:21.01,lng:-101.85,semanas:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},{cve:12.01,zm:"Acapulco",estado:"Guerrero",pob:886975,n_mun:2,lat:16.86,lng:-99.88,semanas:[0,0,0,0,0,0,0,0,0,0,1,0,0,0,1,0,0]},{cve:12.02,zm:"Chilpancingo",estado:"Guerrero",pob:324422,n_mun:2,lat:17.55,lng:-99.5,semanas:[0,0,0,0,0,0,0,0,0,2,0,0,2,0,2,0,0]},{cve:13.01,zm:"Pachuca",estado:"Hidalgo",pob:557093,n_mun:7,lat:20.12,lng:-98.73,semanas:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},{cve:13.02,zm:"Tula",estado:"Hidalgo",pob:225219,n_mun:5,lat:20.05,lng:-99.34,semanas:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},{cve:13.03,zm:"Tulancingo",estado:"Hidalgo",pob:256662,n_mun:3,lat:20.08,lng:-98.36,semanas:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},{cve:14.01,zm:"Guadalajara",estado:"Jalisco",pob:4887383,n_mun:10,lat:20.67,lng:-103.35,semanas:[0,0,0,0,0,0,0,0,0,2,0,0,2,0,2,0,0]},{cve:14.02,zm:"Ocotlán",estado:"Jalisco",pob:176158,n_mun:3,lat:20.35,lng:-102.77,semanas:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},{cve:14.03,zm:"Puerto Vallarta",estado:"Jalisco",pob:425890,n_mun:2,lat:20.65,lng:-105.23,semanas:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},{cve:15.01,zm:"Tianguistenco",estado:"México",pob:170461,n_mun:6,lat:19.29,lng:-99.65,semanas:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},{cve:15.02,zm:"Toluca",estado:"México",pob:2202886,n_mun:16,lat:19.29,lng:-99.65,semanas:[0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0]},{cve:16.01,zm:"La Piedad-Pénjamo",estado:"Guanajuato",pob:254272,n_mun:2,lat:20.36,lng:-102.04,semanas:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},{cve:16.02,zm:"Morelia",estado:"Michoacán de Ocampo",pob:911960,n_mun:3,lat:19.7,lng:-101.19,semanas:[0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0]},{cve:16.03,zm:"Zamora",estado:"Michoacán de Ocampo",pob:265952,n_mun:2,lat:19.98,lng:-102.28,semanas:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1]},{cve:17.01,zm:"Cuautla",estado:"Morelos",pob:475441,n_mun:6,lat:18.92,lng:-99.23,semanas:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},{cve:17.02,zm:"Cuernavaca",estado:"Morelos",pob:983365,n_mun:8,lat:18.92,lng:-99.23,semanas:[0,0,0,0,0,0,0,0,0,2,0,0,2,0,2,0,0]},{cve:18.01,zm:"Tepic",estado:"Nayarit",pob:471026,n_mun:2,lat:21.51,lng:-104.9,semanas:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},{cve:19.01,zm:"Monterrey",estado:"Nuevo León",pob:4689601,n_mun:18,lat:25.67,lng:-100.31,semanas:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1]},{cve:20.01,zm:"Oaxaca",estado:"Oaxaca",pob:671447,n_mun:24,lat:17.06,lng:-96.72,semanas:[0,2,0,2,0,2,0,2,0,2,0,2,0,2,0,2,0]},{cve:20.02,zm:"Tehuantepec",estado:"Oaxaca",pob:179957,n_mun:5,lat:16.32,lng:-95.23,semanas:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},{cve:21.01,zm:"Puebla-Tlaxcala",estado:"Puebla",pob:2941988,n_mun:39,lat:19.04,lng:-98.2,semanas:[0,0,0,1,0,0,1,1,0,0,0,0,0,0,0,1,0]},{cve:21.02,zm:"Tehuacán",estado:"Puebla",pob:344603,n_mun:2,lat:18.46,lng:-97.4,semanas:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},{cve:21.03,zm:"Teziutlán",estado:"Puebla",pob:131786,n_mun:2,lat:19.81,lng:-97.36,semanas:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},{cve:22.01,zm:"Querétaro",estado:"Guanajuato",pob:1323640,n_mun:5,lat:20.59,lng:-100.39,semanas:[0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0]},{cve:23.01,zm:"Cancún",estado:"Quintana Roo",pob:763121,n_mun:2,lat:21.16,lng:-86.83,semanas:[0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0]},{cve:23.02,zm:"Chetumal",estado:"Quintana Roo",pob:224080,n_mun:1,lat:18.5,lng:-88.3,semanas:[0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0]},{cve:24.01,zm:"Rioverde",estado:"San Luis Potosí",pob:139576,n_mun:2,lat:22.15,lng:-100.98,semanas:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},{cve:24.02,zm:"San Luis Potosí",estado:"San Luis Potosí",pob:1159807,n_mun:3,lat:22.15,lng:-100.98,semanas:[0,0,0,2,0,0,2,0,0,2,0,0,2,0,0,0,0]},{cve:25.01,zm:"Culiacán",estado:"Sinaloa",pob:905265,n_mun:1,lat:24.8,lng:-107.39,semanas:[0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0]},{cve:25.02,zm:"Mazatlán",estado:"Sinaloa",pob:502547,n_mun:1,lat:23.22,lng:-106.41,semanas:[0,0,0,0,0,1,0,0,0,0,0,0,0,0,1,0,0]},{cve:26.01,zm:"Guaymas",estado:"Sonora",pob:214223,n_mun:2,lat:27.92,lng:-110.9,semanas:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},{cve:26.02,zm:"Hermosillo",estado:"Sonora",pob:884273,n_mun:1,lat:29.07,lng:-110.97,semanas:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},{cve:26.03,zm:"Nogales",estado:"Sonora",pob:233952,n_mun:1,lat:31.31,lng:-110.94,semanas:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},{cve:27.01,zm:"Villahermosa",estado:"Tabasco",pob:823213,n_mun:2,lat:17.99,lng:-92.93,semanas:[0,0,0,0,0,1,0,1,0,0,0,0,0,0,1,0,0]},{cve:28.01,zm:"Ciudad Victoria",estado:"Tamaulipas",pob:346029,n_mun:1,lat:23.74,lng:-99.14,semanas:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},{cve:28.02,zm:"Matamoros",estado:"Tamaulipas",pob:520367,n_mun:1,lat:25.88,lng:-97.5,semanas:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},{cve:28.03,zm:"Nuevo Laredo",estado:"Tamaulipas",pob:399431,n_mun:1,lat:27.49,lng:-99.51,semanas:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},{cve:28.04,zm:"Reynosa",estado:"Tamaulipas",pob:773089,n_mun:2,lat:26.08,lng:-98.29,semanas:[0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,1]},{cve:28.05,zm:"Tampico",estado:"Tamaulipas",pob:916854,n_mun:5,lat:22.27,lng:-97.86,semanas:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1]},{cve:29.01,zm:"Tlaxcala-Apizaco",estado:"Tlaxcala",pob:540273,n_mun:19,lat:19.43,lng:-98.23,semanas:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},{cve:30.01,zm:"Acayucan",estado:"Veracruz de Ignacio de la Llave",pob:120340,n_mun:3,lat:17.95,lng:-94.91,semanas:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},{cve:30.02,zm:"Coatzacoalcos",estado:"Veracruz de Ignacio de la Llave",pob:365026,n_mun:3,lat:18.13,lng:-94.42,semanas:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},{cve:30.03,zm:"Córdoba",estado:"Veracruz de Ignacio de la Llave",pob:347647,n_mun:4,lat:18.89,lng:-96.93,semanas:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},{cve:30.04,zm:"Minatitlán",estado:"Veracruz de Ignacio de la Llave",pob:372381,n_mun:6,lat:17.99,lng:-94.55,semanas:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},{cve:30.05,zm:"Orizaba",estado:"Veracruz de Ignacio de la Llave",pob:457159,n_mun:13,lat:18.85,lng:-97.1,semanas:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},{cve:30.06,zm:"Poza Rica",estado:"Veracruz de Ignacio de la Llave",pob:538206,n_mun:5,lat:20.53,lng:-97.46,semanas:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},{cve:30.07,zm:"Veracruz",estado:"Veracruz de Ignacio de la Llave",pob:915213,n_mun:6,lat:19.18,lng:-96.14,semanas:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},{cve:30.08,zm:"Xalapa",estado:"Veracruz de Ignacio de la Llave",pob:768271,n_mun:9,lat:19.54,lng:-96.91,semanas:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},{cve:31.01,zm:"Mérida",estado:"Yucatán",pob:1143041,n_mun:11,lat:20.97,lng:-89.62,semanas:[0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0]},{cve:32.01,zm:"Zacatecas-Guadalupe",estado:"Zacatecas",pob:375628,n_mun:5,lat:22.77,lng:-102.57,semanas:[0,0,0,0,0,1,0,0,0,1,1,0,0,1,0,1,0]}];
+ZONAS.forEach(z=>{z.alertas=z.semanas.filter(v=>v>0).length;z.max=Math.max(...z.semanas);});
+
+const CORRIDORS=[{"id":"57D","name":"México–Querétaro–SLP–Monterrey–Laredo","type":"cuota","wp":[[19.43,-99.13],[19.62,-99.27],[20.59,-100.39],[21.18,-100.93],[22.15,-100.98],[23.74,-100.64],[25.42,-100.99],[25.67,-100.31],[26.92,-99.86],[27.49,-99.51]]},{"id":"15D","name":"Nogales–Hermosillo–Culiacán–Guadalajara","type":"cuota","wp":[[31.31,-110.94],[30.78,-110.94],[29.07,-110.97],[27.49,-109.94],[26.85,-109.18],[25.79,-108.99],[24.8,-107.39],[23.22,-106.41],[22.5,-105.39],[21.51,-104.9],[20.91,-104.18],[20.67,-103.35]]},{"id":"45D","name":"Cd. Juárez–Chihuahua–Aguascalientes–Querétaro","type":"cuota","wp":[[31.74,-106.49],[30.4,-106.16],[28.63,-106.07],[27.06,-105.07],[26.93,-105.66],[25.55,-103.43],[25.42,-100.99],[22.77,-102.57],[21.88,-102.29],[20.97,-101.36],[20.59,-100.39]]},{"id":"95D","name":"Autopista del Sol (México–Acapulco)","type":"cuota","wp":[[19.43,-99.13],[18.92,-99.23],[18.42,-99.32],[17.55,-99.5],[17.15,-99.66],[16.86,-99.88]]},{"id":"85","name":"México–Pachuca–Cd. Victoria–Monterrey","type":"libre","wp":[[19.43,-99.13],[20.12,-98.73],[21.14,-98.42],[22.27,-98.95],[23.74,-99.14],[24.78,-99.86],[25.67,-100.31]]},{"id":"150D","name":"México–Puebla–Veracruz","type":"cuota","wp":[[19.43,-99.13],[19.04,-98.2],[18.85,-97.1],[19.18,-96.14]]},{"id":"190","name":"México–Oaxaca–Tehuantepec","type":"libre","wp":[[19.43,-99.13],[19.04,-98.2],[18.74,-98.36],[17.81,-97.78],[17.06,-96.72],[16.45,-96.13],[16.32,-95.23]]},{"id":"40D","name":"Mazatlán–Durango–Saltillo","type":"cuota","wp":[[23.22,-106.41],[23.66,-105.55],[24.02,-104.66],[25.1,-103.27],[25.55,-103.43],[25.42,-100.99],[25.67,-100.31]]},{"id":"180","name":"Costera del Golfo (Tampico–Mérida)","type":"libre","wp":[[22.27,-97.86],[21.16,-97.41],[20.53,-97.46],[19.85,-96.49],[19.18,-96.14],[18.43,-95.85],[17.99,-94.55],[18.13,-94.42],[18.55,-93.2],[17.99,-92.93],[18.43,-91.83],[18.65,-91.83],[19.05,-90.72],[19.84,-90.52],[20.3,-90.05],[20.97,-89.62]]},{"id":"200","name":"Costera del Pacífico (Tepic–Tapachula)","type":"libre","wp":[[21.51,-104.9],[20.71,-105.23],[19.55,-105.07],[19.05,-104.32],[18.06,-102.2],[17.66,-101.55],[16.86,-99.88],[16.31,-98.23],[15.86,-97.07],[15.66,-96.5],[15.36,-95.1],[14.9,-92.26]]},{"id":"AN","name":"Arco Norte (Tula–Pachuca–Puebla)","type":"cuota","wp":[[20.05,-99.34],[20.12,-98.73],[19.79,-98.4],[19.55,-98.07],[19.3,-98.1],[19.04,-98.2]]},{"id":"54D","name":"Guadalajara–Zacatecas–Saltillo","type":"cuota","wp":[[20.67,-103.35],[21.85,-102.85],[22.77,-102.57],[24.2,-101.81],[25.42,-100.99]]},{"id":"80D","name":"Guadalajara–León","type":"cuota","wp":[[20.67,-103.35],[20.81,-102.77],[20.66,-101.86],[21.12,-101.68]]},{"id":"90D","name":"León–Querétaro–México","type":"cuota","wp":[[21.12,-101.68],[20.85,-101.32],[20.52,-100.81],[20.59,-100.39],[19.83,-99.41],[19.43,-99.13]]},{"id":"120","name":"México–Toluca–Morelia","type":"libre","wp":[[19.43,-99.13],[19.29,-99.65],[19.36,-100.13],[19.7,-101.19]]},{"id":"15","name":"Morelia–Guadalajara (libre)","type":"libre","wp":[[19.7,-101.19],[19.98,-102.28],[20.32,-102.79],[20.67,-103.35]]},{"id":"131","name":"Oaxaca–Tuxtepec–Veracruz","type":"libre","wp":[[17.06,-96.72],[17.5,-96.45],[18.1,-96.13],[18.6,-96.34],[19.18,-96.14]]},{"id":"185","name":"Coatzacoalcos–Tuxtla–Tapachula","type":"libre","wp":[[18.13,-94.42],[17.99,-94.55],[17.18,-94.42],[16.74,-93.36],[16.75,-93.11],[16.24,-92.64],[15.4,-92.42],[14.9,-92.26]]},{"id":"186","name":"Villahermosa–Escárcega–Chetumal","type":"libre","wp":[[17.99,-92.93],[17.74,-91.99],[17.61,-91.45],[17.99,-90.72],[18.61,-90.72],[18.5,-89.4],[18.5,-88.3]]},{"id":"307","name":"Cancún–Playa–Tulum–Chetumal","type":"libre","wp":[[21.16,-86.83],[20.63,-87.07],[20.21,-87.46],[19.58,-88.05],[18.5,-88.3]]},{"id":"57","name":"SLP–Aguascalientes–Querétaro","type":"libre","wp":[[22.15,-100.98],[22.05,-101.62],[21.88,-102.29],[20.97,-101.36],[20.59,-100.39]]},{"id":"40","name":"Reynosa–Monterrey–Saltillo","type":"libre","wp":[[26.08,-98.29],[25.95,-99.05],[25.67,-100.31],[25.42,-100.99]]},{"id":"2","name":"Frontera Norte (Tijuana–Reynosa)","type":"libre","wp":[[32.52,-117.03],[32.66,-115.47],[32.49,-114.78],[31.32,-110.94],[30.71,-106.51],[31.31,-107.5],[31.74,-106.49],[29.55,-104.41],[28.7,-100.52],[27.49,-99.51],[26.93,-99.1],[26.08,-98.29]]},{"id":"55","name":"Toluca–Querétaro","type":"libre","wp":[[19.29,-99.65],[19.71,-99.99],[19.86,-100.3],[20.39,-100.18],[20.59,-100.39]]},{"id":"125","name":"Acapulco–Cd. Altamirano–Morelia","type":"libre","wp":[[16.86,-99.88],[17.55,-100.18],[18.36,-100.66],[19.07,-101.04],[19.7,-101.19]]},{"id":"105","name":"Pachuca–Tampico","type":"libre","wp":[[20.12,-98.73],[20.5,-98.45],[21.14,-98.42],[21.95,-98.5],[22.27,-97.86]]},{"id":"75","name":"Querétaro–San Luis Potosí","type":"libre","wp":[[20.59,-100.39],[21.2,-100.55],[22.15,-100.98]]},{"id":"45","name":"Querétaro–Celaya–León","type":"libre","wp":[[20.59,-100.39],[20.52,-100.81],[20.74,-101.34],[21.12,-101.68]]},{"id":"110","name":"Zamora–Pátzcuaro–Morelia","type":"libre","wp":[[19.98,-102.28],[19.65,-102.04],[19.51,-101.61],[19.7,-101.19]]},{"id":"5","name":"Mexicali–Ensenada","type":"libre","wp":[[32.66,-115.47],[32.3,-115.94],[31.87,-116.6]]}];
+
+const MOS=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+const fmtD=d=>{const[y,m,day]=d.split('-');return parseInt(day)+' '+MOS[parseInt(m)-1]+' '+y;};
+const fmtDUpper=d=>{const[y,m,day]=d.split('-');return parseInt(day)+' '+MOS[parseInt(m)-1].toUpperCase()+' '+y;};
+
+function pointToSegmentKm(plat,plng,a_lat,a_lng,b_lat,b_lng){
+  const lat_avg=(a_lat+b_lat+plat)/3;
+  const kx=111*Math.cos(lat_avg*Math.PI/180),ky=111;
+  const px=plng*kx,py=plat*ky,ax=a_lng*kx,ay=a_lat*ky,bx=b_lng*kx,by=b_lat*ky;
+  const dx=bx-ax,dy=by-ay;
+  if(dx===0&&dy===0)return Math.hypot(px-ax,py-ay);
+  let t=((px-ax)*dx+(py-ay)*dy)/(dx*dx+dy*dy);
+  t=Math.max(0,Math.min(1,t));
+  return Math.hypot(px-(ax+t*dx),py-(ay+t*dy));
+}
+function zmCorridorDistKm(zm,corr){
+  let min=Infinity;
+  for(let i=0;i<corr.wp.length-1;i++){
+    const d=pointToSegmentKm(zm.lat,zm.lng,corr.wp[i][0],corr.wp[i][1],corr.wp[i+1][0],corr.wp[i+1][1]);
+    if(d<min)min=d;
+  }
+  return min;
+}
+const PROXIMITY_KM=50;
+function corridorsNearZM(zm,thresh=80){return CORRIDORS.filter(c=>zmCorridorDistKm(zm,c)<thresh);}
+function corridorMidpoint(corr){const mid=Math.floor(corr.wp.length/2);if(corr.wp.length%2===0){const a=corr.wp[mid-1],b=corr.wp[mid];return[(a[0]+b[0])/2,(a[1]+b[1])/2];}return corr.wp[mid];}
+
+function computeDeltas(weekIdx){
+  if(weekIdx===0)return {new:[],up:[],down:[],cleared:[],ongoing:[]};
+  const out={new:[],up:[],down:[],cleared:[],ongoing:[]};
+  ZONAS.forEach(z=>{
+    const cur=z.semanas[weekIdx],prev=z.semanas[weekIdx-1];
+    if(cur===0&&prev===0)return;
+    if(cur>0&&prev===0)out.new.push(z);
+    else if(cur>prev)out.up.push(z);
+    else if(cur<prev&&cur>0)out.down.push(z);
+    else if(cur===0&&prev>0)out.cleared.push(z);
+    else if(cur===prev&&cur>0)out.ongoing.push(z);
+  });
+  return out;
+}
+function computePatterns(z){
+  const alerts=z.semanas;
+  const total=alerts.length;
+  const active=alerts.filter(v=>v>0).length;
+  const freqPct=Math.round(active/total*100);
+  let pattern='Esporádica';
+  if(active===0)return {freq:'0%',pattern:'Sin historia',consecutive:0};
+  let consecutive=0;
+  for(let i=alerts.length-1;i>=0;i--){if(alerts[i]>0)consecutive++;else break;}
+  if(active>=4){
+    const evenAlerts=alerts.filter((v,i)=>i%2===0&&v>0).length;
+    const oddAlerts=alerts.filter((v,i)=>i%2===1&&v>0).length;
+    if((evenAlerts>=4&&oddAlerts===0)||(oddAlerts>=4&&evenAlerts===0))pattern='Quincenal';
+    else if(active>=total*0.6)pattern='Recurrente';
+    else if(active>=total*0.3)pattern='Frecuente';
+  } else if(active>=2)pattern='Ocasional';
+  else pattern='Aislada';
+  return {freq:freqPct+'%',pattern,consecutive};
+}
+function buildHeadline(weekIdx, compact){
+  // Returns HTML for the structured headline. `compact=true` for mobile float, single-line summary.
+  const act = ZONAS.filter(z=>z.semanas[weekIdx]>0);
+  const red = ZONAS.filter(z=>z.semanas[weekIdx]===2).length;
+  const yel = ZONAS.filter(z=>z.semanas[weekIdx]===1).length;
+  const d = computeDeltas(weekIdx);
+  const affectedCorrIds = new Set();
+  act.forEach(z => { CORRIDORS.forEach(corr => { if(zmCorridorDistKm(z,corr) < PROXIMITY_KM) affectedCorrIds.add(corr.id); }); });
+
+  if(compact){
+    // Mobile float: one-line summary with strong visual hierarchy.
+    if(act.length === 0) return '<span class="hl-num green">Sin alertas activas</span>';
+    let s = '<span class="hl-num red">'+act.length+'</span> ZMs activas';
+    if(weekIdx > 0){
+      const parts = [];
+      if(d.new.length > 0) parts.push('<span class="hl-num red">+'+d.new.length+'</span> nueva'+(d.new.length>1?'s':''));
+      if(d.cleared.length > 0) parts.push('<span class="hl-num green">−'+d.cleared.length+'</span> resuelta'+(d.cleared.length>1?'s':''));
+      if(parts.length) s += ' <span class="hl-sep">·</span> '+parts.join(' ');
+    }
+    return s;
+  }
+
+  // Desktop / panel: structured headline with multiple lines.
+  let html = '';
+
+  // PRIMARY LINE: total zones in alert
+  if(act.length === 0){
+    html += '<div class="hl-primary"><span class="hl-num green hl-big">0</span><span class="hl-label">zonas con protestas activas</span></div>';
+    html += '<div class="hl-secondary green">Sin alertas en el país esta semana.</div>';
+  } else {
+    html += '<div class="hl-primary"><span class="hl-num red hl-big">'+act.length+'</span><span class="hl-label">zonas con protestas activas</span></div>';
+    
+    // SECONDARY LINE: breakdown by level
+    const lvlParts = [];
+    if(red > 0) lvlParts.push('<span class="hl-num red">'+red+'</span> en rojo');
+    if(yel > 0) lvlParts.push('<span class="hl-num yellow">'+yel+'</span> en amarillo');
+    if(lvlParts.length === 1 && (red===act.length || yel===act.length)){
+      // All same level — say it differently to avoid redundancy
+      const lvlWord = red === act.length ? 'rojo' : 'amarillo';
+      const lvlCls = red === act.length ? 'red' : 'yellow';
+      html += '<div class="hl-secondary">Todas en nivel <span class="hl-'+lvlCls+'-text">'+lvlWord+'</span>.</div>';
+    } else {
+      html += '<div class="hl-secondary">'+lvlParts.join(' · ')+'.</div>';
+    }
+
+    // CORRIDORS LINE (if any)
+    if(affectedCorrIds.size > 0){
+      html += '<div class="hl-secondary"><span class="hl-num yellow">'+affectedCorrIds.size+'</span> corredor'+(affectedCorrIds.size>1?'es':'')+' federal'+(affectedCorrIds.size>1?'es':'')+' afectado'+(affectedCorrIds.size>1?'s':'')+'.</div>';
+    }
+  }
+
+  // DELTA SECTION (if not first week and any changes)
+  if(weekIdx > 0){
+    const totalChanges = d.new.length + d.up.length + d.down.length + d.cleared.length;
+    if(totalChanges > 0){
+      html += '<div class="hl-delta-title">vs semana anterior</div>';
+      const deltaParts = [];
+      if(d.new.length > 0) deltaParts.push('<div class="hl-delta-row"><span class="hl-num red">+'+d.new.length+'</span> zona'+(d.new.length>1?'s':'')+' nueva'+(d.new.length>1?'s':'')+' en alerta</div>');
+      if(d.up.length > 0) deltaParts.push('<div class="hl-delta-row"><span class="hl-num red">↑'+d.up.length+'</span> escal'+(d.up.length>1?'aron':'ó')+' de nivel</div>');
+      if(d.down.length > 0) deltaParts.push('<div class="hl-delta-row"><span class="hl-num green">↓'+d.down.length+'</span> baj'+(d.down.length>1?'aron':'ó')+' de nivel</div>');
+      if(d.cleared.length > 0) deltaParts.push('<div class="hl-delta-row"><span class="hl-num green">−'+d.cleared.length+'</span> zona'+(d.cleared.length>1?'s':'')+' resuelta'+(d.cleared.length>1?'s':'')+'</div>');
+      html += deltaParts.join('');
+    }
+  }
+
+  return html;
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// PHASE 1: UI WIRING (resilient — runs before Leaflet)
+// ════════════════════════════════════════════════════════════════════════
+let map = null;
+const isDesktop = window.innerWidth > 760;
+let activePanel = null;
+let wk = SEMANAS.length - 1;
+let sel = null;
+let layerVis = {hex:true, corr:true, labels:true};
+let filterVis = {alert:true, historic:true, none:false};
+let corrTypeVis = {cuota:true, libre:true};
+let highlightedCorridors = new Set();
+
+function switchPanel(name){
+  const panel = document.getElementById('panel');
+  if(activePanel === name && panel.classList.contains('open')){
+    panel.classList.remove('open');
+    document.querySelectorAll('.rail-icon').forEach(el=>el.classList.remove('on'));
+    activePanel = null;
+  } else {
+    activePanel = name;
+    document.querySelectorAll('.rail-icon').forEach(el=>el.classList.toggle('on', el.dataset.panel===name));
+    document.querySelectorAll('.panel-content').forEach(el=>{
+      el.style.display = (el.dataset.panel === name) ? 'flex' : 'none';
+    });
+    panel.classList.add('open');
+  }
+  if(map && map.invalidateSize) setTimeout(()=>map.invalidateSize(), 250);
+}
+
+// Rail icons — both touchend and click with guard against double-fire
+document.querySelectorAll('.rail-icon').forEach(el => {
+  let touched = false;
+  el.addEventListener('touchend', (e) => {
+    touched = true;
+    switchPanel(el.dataset.panel);
+    setTimeout(() => { touched = false; }, 500);
+  }, {passive: true});
+  el.addEventListener('click', () => {
+    if(touched) return;
+    switchPanel(el.dataset.panel);
+  });
+});
+
+// Panel close
+document.getElementById('panel').addEventListener('click', (e) => {
+  if(e.target.closest('[data-close]')){
+    document.getElementById('panel').classList.remove('open');
+    document.querySelectorAll('.rail-icon').forEach(el=>el.classList.remove('on'));
+    activePanel = null;
+    if(map && map.invalidateSize) setTimeout(()=>map.invalidateSize(), 250);
+  }
+});
+
+// Backdrop click (mobile)
+const backdrop = document.getElementById('panel-backdrop');
+if(backdrop){
+  backdrop.addEventListener('click', () => {
+    document.getElementById('panel').classList.remove('open');
+    document.querySelectorAll('.rail-icon').forEach(el=>el.classList.remove('on'));
+    activePanel = null;
+  });
+}
+
+// Hamburger menu
+const hamb = document.getElementById('hamburger');
+const hambMenu = document.getElementById('hamburger-menu');
+let hambTouched = false;
+hamb.addEventListener('touchend', (e) => {
+  e.stopPropagation();
+  hambTouched = true;
+  hambMenu.classList.toggle('open');
+  setTimeout(() => { hambTouched = false; }, 500);
+}, {passive: true});
+hamb.addEventListener('click', (e) => {
+  e.stopPropagation();
+  if(hambTouched) return;
+  hambMenu.classList.toggle('open');
+});
+document.addEventListener('click', (e) => {
+  if(!hamb.contains(e.target) && !hambMenu.contains(e.target)){
+    hambMenu.classList.remove('open');
+  }
+});
+
+// Week nav (Resumen panel)
+document.querySelectorAll('[data-week]').forEach(el => {
+  el.addEventListener('click', () => {
+    const dir = el.dataset.week === 'prev' ? -1 : 1;
+    changeWeek(dir);
+  });
+});
+
+// Filter checkboxes
+document.querySelectorAll('[data-filter]').forEach(cb => {
+  cb.addEventListener('click', () => {
+    const f = cb.dataset.filter;
+    filterVis[f] = !filterVis[f];
+    cb.classList.toggle('on', filterVis[f]);
+    renderZMList();
+  });
+});
+
+// Layer toggles
+document.querySelectorAll('[data-tg]').forEach(t => {
+  t.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const layer = t.dataset.tg;
+    layerVis[layer] = !layerVis[layer];
+    t.classList.toggle('on', layerVis[layer]);
+    if(map) refreshMap();
+  });
+});
+
+// Corridor type filter
+document.querySelectorAll('[data-corr-type]').forEach(cb => {
+  cb.addEventListener('click', () => {
+    const t = cb.dataset.corrType;
+    corrTypeVis[t] = !corrTypeVis[t];
+    cb.classList.toggle('on', corrTypeVis[t]);
+    if(map) refreshMap();
+  });
+});
+
+// Detail close
+document.getElementById('dc').addEventListener('click', () => {
+  document.getElementById('det').style.display = 'none';
+  sel = null;
+  highlightedCorridors = new Set();
+  if(map) refreshMap();
+  renderAll();
+});
+
+function changeWeek(d){
+  const nw = Math.max(0, Math.min(SEMANAS.length-1, wk + d));
+  if(nw === wk) return;
+  wk = nw;
+  if(map) refreshMap();
+  renderAll();
+  if(sel) showDet(sel);
+}
+function jmpW(i){ wk = i; if(map) refreshMap(); renderAll(); if(sel) showDet(sel); }
+
+// Expose for inline onclick
+window.changeWeek = changeWeek;
+window.jmpW = jmpW;
+window.clkZ = function(cve){ const z = ZONAS.find(z=>z.cve===cve); if(z) doSelect(z); };
+
+// Open Resumen by default on desktop
+if(isDesktop){
+  switchPanel('resumen');
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// PHASE 2: MAP (try/catch — UI works even if Leaflet fails)
+// ════════════════════════════════════════════════════════════════════════
+let hexLayer, dotsLayer, zmLabelLayer, corridorLayer, corridorLabelLayer, selectedLayer;
+
+function hexagonLatLng(lat,lng,r){
+  const k2d=r/111,lf=1/Math.cos(lat*Math.PI/180),c=[];
+  for(let i=0;i<6;i++){const a=Math.PI/3*i;c.push([lat+k2d*Math.sin(a),lng+k2d*lf*Math.cos(a)]);}
+  return c;
+}
+function lvlMeta(n){
+  if(n===2)return['NIVEL 2 — ROJO','#e03020','rgba(224,48,32,0.18)'];
+  if(n===1)return['NIVEL 1 — AMARILLO','#e4c249','rgba(228,194,73,0.18)'];
+  return['NIVEL 0','#3ecf6e','rgba(62,207,110,0.12)'];
+}
+function buildTooltipHTML(z){
+  const n=z.semanas[wk],[lbl,col]=lvlMeta(n);
+  return '<div class="tn">'+z.zm+'</div><div class="ts">'+z.estado+'</div><div class="tl" style="color:'+col+'">'+lbl+'</div><div class="ti">'+z.alertas+' sem. en alerta · '+(z.pob/1e6).toFixed(1)+'M hab.</div>';
+}
+
+
+// Catmull-Rom spline interpolation — smooths polyline by adding curved intermediate points.
+// Takes array of [lat,lng], returns array with extra points between each pair, curved.
+function smoothLine(points, segments) {
+  if(!points || points.length < 2) return points;
+  if(points.length === 2) return points;
+  segments = segments || 8;
+  const out = [points[0]];
+  for(let i = 0; i < points.length - 1; i++) {
+    const p0 = points[Math.max(0, i - 1)];
+    const p1 = points[i];
+    const p2 = points[i + 1];
+    const p3 = points[Math.min(points.length - 1, i + 2)];
+    for(let s = 1; s <= segments; s++) {
+      const t = s / segments;
+      const t2 = t * t;
+      const t3 = t2 * t;
+      const lat = 0.5 * (
+        (2 * p1[0]) +
+        (-p0[0] + p2[0]) * t +
+        (2 * p0[0] - 5 * p1[0] + 4 * p2[0] - p3[0]) * t2 +
+        (-p0[0] + 3 * p1[0] - 3 * p2[0] + p3[0]) * t3
+      );
+      const lng = 0.5 * (
+        (2 * p1[1]) +
+        (-p0[1] + p2[1]) * t +
+        (2 * p0[1] - 5 * p1[1] + 4 * p2[1] - p3[1]) * t2 +
+        (-p0[1] + 3 * p1[1] - 3 * p2[1] + p3[1]) * t3
+      );
+      out.push([lat, lng]);
+    }
+  }
+  return out;
+}
+
+function refreshCorridors(){
+  // Corridors are no longer drawn on the map — they live in the 'Corredores' panel as a list.
+  // Layers cleared in case toggles re-add anything.
+  if(corridorLayer) corridorLayer.clearLayers();
+  if(corridorLabelLayer) corridorLabelLayer.clearLayers();
+}
+
+function refreshHex(){
+  if(!hexLayer) return;
+  hexLayer.clearLayers();
+  dotsLayer.clearLayers();
+  zmLabelLayer.clearLayers();
+  selectedLayer.clearLayers();
+  if(!layerVis.hex) return;
+  const RING_DEFS=[{km:60,op:0.05},{km:42,op:0.13},{km:28,op:0.25},{km:18,op:0.45},{km:10,op:0.72},{km:5,op:0.92}];
+  const zoom = map.getZoom();
+  ZONAS.forEach(z => {
+    const n = z.semanas[wk];
+    if(n === 0){
+      const dot = L.circleMarker([z.lat,z.lng], {radius:3, color:'rgba(255,255,255,0.2)', weight:1, fillColor:'#fff', fillOpacity:0.4, interactive:true});
+      dot.bindTooltip(buildTooltipHTML(z), {direction:'top',offset:[0,-4]});
+      dot.on('click', () => doSelect(z));
+      dot.addTo(dotsLayer);
+    } else {
+      const colorHex = n===2?'#e03020':'#e4c249';
+      RING_DEFS.forEach(ring => {
+        const poly = L.polygon(hexagonLatLng(z.lat,z.lng,ring.km), {color:'transparent', weight:0, fillColor:colorHex, fillOpacity:ring.op, interactive:true});
+        poly.bindTooltip(buildTooltipHTML(z), {direction:'top',offset:[0,-4]});
+        poly.on('click', () => doSelect(z));
+        poly.addTo(hexLayer);
+      });
+    }
+    if(layerVis.labels && ((n>0 && zoom>=6) || zoom>=8)){
+      const cls = n===2?'alert-2':n===1?'alert-1':'';
+      L.marker([z.lat,z.lng], {icon: L.divIcon({className:'', html:'<div class="zm-label '+cls+'">'+z.zm+'</div>', iconSize:null, iconAnchor:[0,-12]}), interactive:false, keyboard:false}).addTo(zmLabelLayer);
+    }
+  });
+  if(sel){
+    L.polygon(hexagonLatLng(sel.lat,sel.lng,65), {color:'rgba(255,255,255,0.5)', weight:1.5, fill:false, interactive:false}).addTo(selectedLayer);
+  }
+}
+function refreshMap(){ refreshCorridors(); refreshHex(); }
+
+function doSelect(z){
+  sel = z;
+  highlightedCorridors = new Set();
+  if(map){
+    map.flyTo([z.lat, z.lng], Math.max(map.getZoom(), 7), {duration:0.7});
+  }
+  refreshMap();
+  showDet(z);
+  renderAll();
+}
+
+function showDet(z){
+  const n = z.semanas[wk], [lbl,col,bg] = lvlMeta(n);
+  document.getElementById('dn').textContent = z.zm;
+  document.getElementById('ds').textContent = z.estado + ' · ' + z.n_mun + ' municipios';
+  const ne = document.getElementById('dniv');
+  ne.textContent = lbl; ne.style.color = col; ne.style.background = bg;
+  document.getElementById('dsa').textContent = z.alertas;
+  document.getElementById('dsp').textContent = (z.pob/1e6).toFixed(1) + 'M';
+  document.getElementById('dsm').textContent = z.max;
+  document.getElementById('dch').innerHTML = z.semanas.map((v,i)=>{
+    const h = v===0?2:v===1?16:32;
+    const c = v===2?'#e03020':v===1?'#e4c249':'rgba(255,255,255,0.07)';
+    const hl = i===wk?'outline:1.5px solid rgba(255,255,255,0.45);outline-offset:1px;':'';
+    return '<div class="dbar" style="height:'+h+'px;background:'+c+';'+hl+'"></div>';
+  }).join('');
+  const p = computePatterns(z);
+  document.getElementById('opf').textContent = p.freq + ' de las semanas';
+  document.getElementById('opp').textContent = p.pattern;
+  document.getElementById('opc').textContent = p.consecutive;
+  const nearby = corridorsNearZM(z, 80);
+  const corrEl = document.getElementById('dcorr-list');
+  const ctaEl = document.getElementById('dcorr-cta');
+  if(nearby.length === 0){
+    corrEl.innerHTML = '<div style="font-size:10px;color:var(--text-dim);font-style:italic">Sin corredores federales cerca</div>';
+    ctaEl.style.display = 'none';
+  } else {
+    corrEl.innerHTML = nearby.map(c => '<span class="dcorr-tag" title="'+c.name+'">'+c.id+'</span>').join('');
+    ctaEl.style.display = 'inline';
+    ctaEl.onclick = () => {
+      highlightedCorridors = new Set(nearby.map(c=>c.id));
+      refreshMap();
+      const allPoints = [];
+      nearby.forEach(c => c.wp.forEach(p => allPoints.push(p)));
+      allPoints.push([z.lat, z.lng]);
+      if(allPoints.length > 1 && map) map.fitBounds(L.latLngBounds(allPoints), {padding:[50,50]});
+    };
+  }
+  document.getElementById('det').style.display = 'block';
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// RENDER: headline, week dots, metrics, changes, ZM list, history
+// ════════════════════════════════════════════════════════════════════════
+function renderAll(){
+  const ds = fmtD(SEMANAS[wk]);
+  const isCurrent = (wk === SEMANAS.length-1);
+
+  // Week labels (both desktop panel + mobile float)
+  document.getElementById('wlbl-r').textContent = ds;
+  document.getElementById('hl-week').textContent = (isCurrent ? 'ESTA SEMANA · ' : 'SEMANA · ') + fmtDUpper(SEMANAS[wk]);
+  document.getElementById('fh-week').textContent = (isCurrent ? 'ESTA SEMANA · ' : 'SEMANA · ') + fmtDUpper(SEMANAS[wk]);
+
+  // Headline: structured for panel, compact for mobile float
+  document.getElementById('hl-text').innerHTML = buildHeadline(wk, false);
+  document.getElementById('fh-text').innerHTML = buildHeadline(wk, true);
+
+
+  // Week dots
+  const dotsHTML = SEMANAS.map((s,i) => {
+    const mx = Math.max(...ZONAS.map(z => z.semanas[i]));
+    const bg = mx===2?'#e03020':mx===1?'#e4c249':'rgba(255,255,255,0.1)';
+    return '<div class="wdot'+(i===wk?' on':'')+'" style="background:'+bg+'" onclick="jmpW('+i+')" title="'+fmtD(s)+'"></div>';
+  }).join('');
+  document.getElementById('dots-r').innerHTML = dotsHTML;
+
+  // Changes
+  const d = computeDeltas(wk);
+  const totalChanges = d.new.length + d.up.length + d.down.length + d.cleared.length;
+  const changesEl = document.getElementById('changes-list');
+  if(wk === 0){
+    changesEl.innerHTML = '<div class="change-empty">Primera semana — sin comparación</div>';
+  } else if(totalChanges === 0){
+    changesEl.innerHTML = '<div class="change-empty">Sin cambios respecto a la semana anterior</div>';
+  } else {
+    const rows = [];
+    d.new.forEach(z => rows.push('<div class="change-row new" onclick="clkZ('+z.cve+')"><span class="change-icon up">●</span><span class="change-name">'+z.zm+'</span><span class="change-tag">NUEVA</span></div>'));
+    d.up.forEach(z => rows.push('<div class="change-row up" onclick="clkZ('+z.cve+')"><span class="change-icon up">▲</span><span class="change-name">'+z.zm+'</span><span class="change-tag">SUBE</span></div>'));
+    d.down.forEach(z => rows.push('<div class="change-row down" onclick="clkZ('+z.cve+')"><span class="change-icon down">▼</span><span class="change-name">'+z.zm+'</span><span class="change-tag">BAJA</span></div>'));
+    d.cleared.forEach(z => rows.push('<div class="change-row cleared" onclick="clkZ('+z.cve+')"><span class="change-icon down">○</span><span class="change-name">'+z.zm+'</span><span class="change-tag">RESUELTA</span></div>'));
+    changesEl.innerHTML = rows.join('');
+  }
+
+  renderZMList();
+  renderCorridors();
+  renderHistory();
+}
+
+function renderZMList(){
+  const el = document.getElementById('zm-list');
+  // Filter ZMs based on filterVis
+  const sorted = [...ZONAS].sort((a,b) => {
+    const d = b.semanas[wk] - a.semanas[wk];
+    return d || b.alertas - a.alertas;
+  });
+  const filtered = sorted.filter(z => {
+    const inAlert = z.semanas[wk] > 0;
+    const hasHistory = !inAlert && z.alertas > 0;
+    const none = !inAlert && z.alertas === 0;
+    if(inAlert && filterVis.alert) return true;
+    if(hasHistory && filterVis.historic) return true;
+    if(none && filterVis.none) return true;
+    return false;
+  });
+
+  if(filtered.length === 0){
+    el.innerHTML = '<div style="padding:14px 16px;font-size:11px;color:var(--text-dim);font-style:italic;">Sin ZMs para los filtros activos</div>';
+    return;
+  }
+
+  // Group: alerted first, then with history, then without
+  const alerted = filtered.filter(z => z.semanas[wk] > 0);
+  const others = filtered.filter(z => z.semanas[wk] === 0);
+
+  const mkRow = z => {
+    const n = z.semanas[wk];
+    const dot = n===2?'#e03020':n===1?'#e4c249':'rgba(255,255,255,0.14)';
+    const isSel = sel && sel.cve === z.cve;
+    return '<div class="zmr'+(isSel?' sel':'')+(n===0?' dim':'')+'" onclick="clkZ('+z.cve+')"><div class="zd" style="background:'+dot+'"></div><div class="zn">'+z.zm+'</div><div class="zw">'+(z.alertas>0?z.alertas+'s':'')+'</div></div>';
+  };
+
+  let html = '';
+  if(alerted.length > 0){
+    html += '<div class="list-hdr">En alerta esta semana</div>';
+    html += alerted.map(mkRow).join('');
+  }
+  if(others.length > 0){
+    html += '<div class="list-hdr">Otras zonas</div>';
+    html += others.map(mkRow).join('');
+  }
+  el.innerHTML = html;
+}
+
+function renderHistory(){
+  const el = document.getElementById('hist-list');
+  const sorted = [...ZONAS].sort((a,b) => b.alertas - a.alertas).filter(z => z.alertas > 0);
+  const html = sorted.map(z => {
+    const bars = z.semanas.map((v,i) => {
+      const c = v===2?'#e03020':v===1?'#e4c249':'rgba(255,255,255,0.08)';
+      const bd = v===0?'border:1px solid rgba(255,255,255,0.1)':'';
+      const hl = i===wk?'outline:1.5px solid rgba(255,255,255,0.45);outline-offset:1px;':'';
+      return '<div class="hist-bar" style="background:'+c+';'+bd+';'+hl+'" onclick="event.stopPropagation();jmpW('+i+')" title="'+fmtD(SEMANAS[i])+'"></div>';
+    }).join('');
+    return '<div class="hist-row"><div class="hist-name" onclick="clkZ('+z.cve+')">'+z.zm+'</div><div class="hist-bars">'+bars+'</div><div class="hist-count">'+z.alertas+'/'+SEMANAS.length+'</div></div>';
+  }).join('');
+  const neverCount = ZONAS.filter(z => z.alertas === 0).length;
+  el.innerHTML = html + (neverCount > 0 ? '<div style="padding:14px 16px;font-size:11px;color:var(--text-dim);font-style:italic;">+ '+neverCount+' ZMs sin alertas en el periodo</div>' : '');
+}
+
+function renderCorridors(){
+  const el = document.getElementById('corr-list');
+  if(!el) return;
+  // For each corridor, count how many ZMs in alert this week it crosses
+  const act = ZONAS.filter(z => z.semanas[wk] > 0);
+  const corrAffected = CORRIDORS.map(c => {
+    const affecting = act.filter(z => zmCorridorDistKm(z, c) < PROXIMITY_KM);
+    return {
+      corr: c,
+      zms: affecting,
+      maxLevel: affecting.length === 0 ? 0 : Math.max(...affecting.map(z => z.semanas[wk]))
+    };
+  }).filter(x => x.zms.length > 0)
+    .sort((a, b) => b.zms.length - a.zms.length || b.maxLevel - a.maxLevel);
+
+  if(corrAffected.length === 0){
+    el.innerHTML = '<div style="padding:16px;font-size:12px;color:var(--text-dim);font-style:italic;text-align:center;">Sin corredores afectados esta semana</div>';
+    return;
+  }
+
+  const html = corrAffected.map(x => {
+    const c = x.corr;
+    const levelBadge = x.maxLevel === 2
+      ? '<span class="corr-badge red">ROJO</span>'
+      : '<span class="corr-badge yellow">AMARILLO</span>';
+    const typeBadge = '<span class="corr-type '+c.type+'">'+(c.type === 'cuota' ? 'CUOTA' : 'LIBRE')+'</span>';
+    const zmList = x.zms.map(z => '<span class="corr-zm" onclick="event.stopPropagation();clkZ('+z.cve+')">'+z.zm+'</span>').join('');
+    return '<div class="corr-row">' +
+      '<div class="corr-row-top">' +
+        '<span class="corr-id">'+c.id+'</span>' +
+        typeBadge +
+        levelBadge +
+        '<span class="corr-count">'+x.zms.length+' ZM'+(x.zms.length>1?'s':'')+'</span>' +
+      '</div>' +
+      '<div class="corr-name">'+c.name+'</div>' +
+      '<div class="corr-zms">'+zmList+'</div>' +
+    '</div>';
+  }).join('');
+  el.innerHTML = html;
+}
+
+// Initial render (works without map)
+renderAll();
+
+// ════════════════════════════════════════════════════════════════════════
+// Map init
+// ════════════════════════════════════════════════════════════════════════
+try {
+  if(typeof L === 'undefined') throw new Error('Leaflet not loaded');
+
+  map = L.map('map', {
+    center: [23.5, -102.5], zoom: 5, minZoom: 4, maxZoom: 13,
+    zoomControl: false, attributionControl: true,
+    touchZoom: true, scrollWheelZoom: true, doubleClickZoom: true,
+    dragging: true, tap: true, bounceAtZoomLimits: false
+  });
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19, attribution: '© OpenStreetMap', subdomains: ['a','b','c']
+  }).addTo(map);
+  map.getContainer().classList.add('style-dark');
+
+  L.control.zoom({position: 'bottomright'}).addTo(map);
+
+  // Layer groups (order matters for z-index)
+  corridorLayer = L.layerGroup().addTo(map);
+  corridorLabelLayer = L.layerGroup().addTo(map);
+  hexLayer = L.layerGroup().addTo(map);
+  dotsLayer = L.layerGroup().addTo(map);
+  zmLabelLayer = L.layerGroup().addTo(map);
+  selectedLayer = L.layerGroup().addTo(map);
+
+  map.on('zoomend', refreshMap);
+
+  refreshMap();
+  setTimeout(() => map.invalidateSize(), 100);
+  setTimeout(() => map.invalidateSize(), 500);
+
+} catch(err) {
+  console.error('Map initialization failed:', err);
+  const mapEl = document.getElementById('map');
+  if(mapEl) {
+    mapEl.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:rgba(255,255,255,0.7);font-size:13px;padding:24px;text-align:center;gap:8px;background:#0a0a0a;">' +
+      '<div style="font-size:32px;opacity:0.4;">⚠</div>' +
+      '<div style="font-size:14px;font-weight:600;color:#fff;">No se pudo cargar el mapa</div>' +
+      '<div style="max-width:280px;line-height:1.5;">Verifica tu conexión a internet o recarga la página. Los datos del panel siguen disponibles.</div>' +
+    '</div>';
+  }
+}
+</script>
+</body>
+</html><!-- Build: Mon May 11 14:46:01 CST 2026 -->
