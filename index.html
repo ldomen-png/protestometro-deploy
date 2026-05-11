@@ -13,13 +13,13 @@
   --aleph-yellow:#e4c249;
   --aleph-yellow-soft:rgba(228,194,73,0.12);
   --aleph-yellow-mid:rgba(228,194,73,0.35);
-  --bg-rail:rgba(18,18,18,0.62);
+  --bg-rail:rgba(15,15,17,0.42);
   --bg-rail-solid:#121212;
-  --bg-panel:rgba(28,28,30,0.62);
+  --bg-panel:rgba(20,20,22,0.55);
   --bg-panel-solid:#1c1c1e;
   --bg-panel-hover:rgba(255,255,255,0.05);
   --bg-input:rgba(20,20,22,0.85);
-  --bg-header:rgba(15,15,17,0.65);
+  --bg-header:rgba(12,12,14,0.42);
   --border:rgba(255,255,255,0.10);
   --border-strong:rgba(255,255,255,0.18);
   --text:#fff;
@@ -36,11 +36,13 @@ html,body{height:100%;width:100%;overflow:hidden;font-family:'Inter',sans-serif;
 
 /* ── HEADER (glassmorphism) ──────────────────────────────── */
 #header{
+  position:absolute;top:0;left:0;right:0;
   height:54px;background:var(--bg-header);
   -webkit-backdrop-filter:blur(24px) saturate(180%);
+  backdrop-filter:blur(24px) saturate(180%);
   border-bottom:1px solid var(--border);
   display:flex;align-items:center;padding:0 16px;gap:12px;
-  flex-shrink:0;z-index:2300;position:relative;
+  z-index:2300;
 }
 .brand{display:flex;align-items:center;gap:0;flex-shrink:0;margin-right:8px;}
 .brand-logo-img{height:24px;width:auto;display:block;flex-shrink:0;}
@@ -80,13 +82,15 @@ html,body{height:100%;width:100%;overflow:hidden;font-family:'Inter',sans-serif;
 .hm-link:hover{text-decoration:underline;}
 
 /* ── BODY layout ─────────────────────────────────────────── */
-#app{display:flex;flex-direction:column;height:100vh;width:100vw;}
-#body{flex:1;display:flex;min-height:0;overflow:hidden;}
+#app{position:relative;height:100vh;width:100vw;overflow:hidden;}
+#body{position:absolute;top:0;left:0;right:0;bottom:0;overflow:hidden;}
 
 /* ── ICON RAIL (glassmorphism) ────────────────────────────── */
 #rail{
-  width:54px;flex-shrink:0;background:var(--bg-rail);
+  position:absolute;top:54px;left:0;bottom:0;
+  width:54px;background:var(--bg-rail);
   -webkit-backdrop-filter:blur(24px) saturate(180%);
+  backdrop-filter:blur(24px) saturate(180%);
   border-right:1px solid var(--border);
   display:flex;flex-direction:column;align-items:center;
   padding:8px 0;gap:2px;z-index:50;
@@ -117,8 +121,10 @@ html,body{height:100%;width:100%;overflow:hidden;font-family:'Inter',sans-serif;
 
 /* ── PANEL (glassmorphism, sliding) ──────────────────────── */
 #panel{
-  width:340px;flex-shrink:0;background:var(--bg-panel);
+  position:absolute;top:54px;left:54px;bottom:0;
+  width:340px;background:var(--bg-panel);
   -webkit-backdrop-filter:blur(24px) saturate(180%);
+  backdrop-filter:blur(24px) saturate(180%);
   border-right:1px solid var(--border);
   display:none;flex-direction:column;overflow:hidden;
   z-index:2000;
@@ -350,7 +356,7 @@ html,body{height:100%;width:100%;overflow:hidden;font-family:'Inter',sans-serif;
 .corr-zm:hover{background:rgba(228,194,73,0.18);border-color:rgba(228,194,73,0.4);}
 
 /* ── MAP ─────────────────────────────────────────────────── */
-#mapwrap{flex:1;position:relative;background:#0a0a0a;overflow:hidden;min-width:0;touch-action:none;}
+#mapwrap{position:absolute;inset:0;background:#0a0a0a;overflow:hidden;touch-action:none;}
 #map{position:absolute;inset:0;background:#0a0a0a;}
 .leaflet-container{background:#0a0a0a!important;font-family:'Inter',sans-serif!important;touch-action:none!important;}
 
@@ -473,7 +479,7 @@ html,body{height:100%;width:100%;overflow:hidden;font-family:'Inter',sans-serif;
     height:calc(56px + env(safe-area-inset-bottom, 0px));
     flex-direction:row;justify-content:space-around;align-items:flex-start;
     border-right:none;border-top:1px solid var(--border);
-    position:fixed;bottom:0;left:0;right:0;
+    position:fixed;top:auto;bottom:0;left:0;right:0;
     padding:6px 8px calc(6px + env(safe-area-inset-bottom, 0px)) 8px;
     z-index:2100;
   }
@@ -488,14 +494,15 @@ html,body{height:100%;width:100%;overflow:hidden;font-family:'Inter',sans-serif;
   #body{flex-direction:column;padding-bottom:calc(56px + env(safe-area-inset-bottom, 0px));}
   #mapwrap{flex:1;min-height:0;}
 
-  /* Float headline always visible on mobile */
-  #float-headline{display:block;}
+  /* Float headline always visible on mobile, below the floating header */
+  #float-headline{display:block;top:60px;}
 
   /* Panel: hidden by default, opens via rail icon */
   #panel{
     display:none;
     width:100%;
     position:fixed;
+    top:auto;
     bottom:calc(56px + env(safe-area-inset-bottom, 0px));
     left:0;right:0;
     height:55vh;max-height:55vh;
