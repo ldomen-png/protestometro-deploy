@@ -415,13 +415,19 @@ html,body{height:100%;width:100%;overflow:hidden;font-family:'Inter',sans-serif;
   box-shadow:0 4px 16px rgba(0,0,0,0.4);
 }
 #clima-legend.on{display:block;}
-.cl-row{display:flex;align-items:center;gap:8px;margin-bottom:5px;}
-.cl-row:last-child{margin-bottom:0;}
-.cl-label{font-size:9px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:rgba(255,255,255,0.6);width:50px;}
-.cl-bar{height:6px;width:120px;border-radius:2px;}
-.cl-bar.rain{background:linear-gradient(to right, rgba(58,168,255,0.08), rgba(58,168,255,0.85));}
-.cl-bar.wind{background:linear-gradient(to right, rgba(255,149,48,0.08), rgba(255,149,48,0.85));}
-.cl-marks{display:flex;justify-content:space-between;font-size:9px;color:rgba(255,255,255,0.45);width:120px;margin-top:1px;}
+.cl-row{display:flex;align-items:flex-start;gap:8px;}
+.cl-label{font-size:9px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:rgba(255,255,255,0.55);width:42px;padding-top:1px;}
+.cl-bar{
+  height:8px;width:170px;border-radius:2px;
+  background:linear-gradient(to right,
+    rgba(58,168,255,0.22) 0%,
+    rgba(58,168,255,0.45) 8%,
+    rgba(62,192,173,0.60) 20%,
+    rgba(228,194,73,0.70) 36%,
+    rgba(255,149,48,0.80) 56%,
+    rgba(224,48,32,0.90) 100%);
+}
+.cl-marks{display:flex;justify-content:space-between;font-size:9px;color:rgba(255,255,255,0.5);width:170px;margin-top:2px;}
 @media(max-width:760px){
   #clima-legend{bottom:calc(56px + env(safe-area-inset-bottom, 0px) + 90px);right:8px;}
 }
@@ -750,15 +756,8 @@ html,body{height:100%;width:100%;overflow:hidden;font-family:'Inter',sans-serif;
         <div class="cl-row">
           <span class="cl-label">Lluvia</span>
           <div>
-            <div class="cl-bar rain"></div>
-            <div class="cl-marks"><span>0</span><span>10</span><span>30</span><span>40+ mm</span></div>
-          </div>
-        </div>
-        <div class="cl-row">
-          <span class="cl-label">Viento</span>
-          <div>
-            <div class="cl-bar wind"></div>
-            <div class="cl-marks"><span>0</span><span>30</span><span>50</span><span>70+ km/h</span></div>
+            <div class="cl-bar"></div>
+            <div class="cl-marks"><span>1</span><span>10</span><span>18</span><span>28</span><span>50+ mm</span></div>
           </div>
         </div>
       </div>
@@ -964,10 +963,80 @@ let weatherData = null;
 let weatherInflight = null;
 let corridorWeatherData = null;
 let corridorWeatherInflight = null;
+let gridWeatherData = null;
+let gridWeatherInflight = null;
 let savedProtestasSemanas = null;
 let savedProtestasDates = null;
 const CLIMA_THRESHOLDS = { yellowRain:5, redRain:30, yellowWind:40, redWind:60 };
 const CLIMA_SCALE = { rainNorm:40, windNorm:70 }; // mm and km/h that map to "max intensity"
+const GRID_STEP = 0.75;
+const GRID_BOUNDS = { minLat:14, maxLat:33, minLng:-118, maxLng:-86 };
+
+// Aleph-branded rain scale: cian → turquesa → amarillo Aleph → naranja → rojo
+const RAIN_STOPS = [
+  { mm:0,  rgb:[58,168,255],  a:0    },
+  { mm:1,  rgb:[58,168,255],  a:0.22 },
+  { mm:4,  rgb:[58,168,255],  a:0.45 },
+  { mm:10, rgb:[62,192,173],  a:0.60 },
+  { mm:18, rgb:[228,194,73],  a:0.70 },
+  { mm:28, rgb:[255,149,48],  a:0.80 },
+  { mm:50, rgb:[224,48,32],   a:0.90 }
+];
+function rainStyleAleph(mm){
+  if(mm == null || mm < 0.5) return null;
+  for(let i = 0; i < RAIN_STOPS.length - 1; i++){
+    const a = RAIN_STOPS[i], b = RAIN_STOPS[i+1];
+    if(mm >= a.mm && mm < b.mm){
+      const t = (mm - a.mm) / (b.mm - a.mm);
+      const r = Math.round(a.rgb[0] + (b.rgb[0]-a.rgb[0]) * t);
+      const g = Math.round(a.rgb[1] + (b.rgb[1]-a.rgb[1]) * t);
+      const bl = Math.round(a.rgb[2] + (b.rgb[2]-a.rgb[2]) * t);
+      const al = a.a + (b.a - a.a) * t;
+      return { fillColor:'rgb('+r+','+g+','+bl+')', fillOpacity:al };
+    }
+  }
+  const last = RAIN_STOPS[RAIN_STOPS.length-1];
+  return { fillColor:'rgb('+last.rgb[0]+','+last.rgb[1]+','+last.rgb[2]+')', fillOpacity:last.a };
+}
+
+function generateMexicoGrid(){
+  const points = [];
+  for(let lat = GRID_BOUNDS.minLat; lat <= GRID_BOUNDS.maxLat + 1e-9; lat += GRID_STEP){
+    for(let lng = GRID_BOUNDS.minLng; lng <= GRID_BOUNDS.maxLng + 1e-9; lng += GRID_STEP){
+      points.push({ lat:+lat.toFixed(3), lng:+lng.toFixed(3) });
+    }
+  }
+  return points;
+}
+function loadGridWeather(){
+  if(gridWeatherData) return Promise.resolve(gridWeatherData);
+  if(gridWeatherInflight) return gridWeatherInflight;
+  const grid = generateMexicoGrid();
+  const BATCH = 900;
+  const batches = [];
+  for(let i = 0; i < grid.length; i += BATCH) batches.push(grid.slice(i, i + BATCH));
+  const fetchBatch = (pts) => {
+    const lats = pts.map(p => p.lat).join(',');
+    const lngs = pts.map(p => p.lng).join(',');
+    const url = 'https://api.open-meteo.com/v1/forecast?latitude='+lats+'&longitude='+lngs
+      +'&daily=precipitation_sum,wind_speed_10m_max'
+      +'&timezone=America%2FMexico_City&forecast_days=7';
+    return fetch(url).then(r => r.json()).then(d => Array.isArray(d) ? d : [d]);
+  };
+  gridWeatherInflight = Promise.all(batches.map(fetchBatch)).then(results => {
+    const out = [];
+    results.forEach((batchResult, bi) => {
+      batchResult.forEach((fc, pi) => {
+        const p = batches[bi][pi];
+        out.push({ lat:p.lat, lng:p.lng, daily: fc && fc.daily ? fc.daily : null });
+      });
+    });
+    gridWeatherData = out;
+    gridWeatherInflight = null;
+    return gridWeatherData;
+  }).catch(e => { console.warn('Grid weather failed:', e); gridWeatherInflight = null; return null; });
+  return gridWeatherInflight;
+}
 
 function climaLevelFromDay(rainMm, windKmh){
   if(rainMm > CLIMA_THRESHOLDS.redRain || windKmh > CLIMA_THRESHOLDS.redWind) return 2;
@@ -1032,7 +1101,7 @@ async function setMode(newMode){
     mode = 'clima';
     if(brand) brand.textContent = 'Clímometro';
     document.getElementById('hl-text').innerHTML = '<div class="hl-secondary">Cargando pronóstico…</div>';
-    const [data] = await Promise.all([loadWeather(), loadCorridorWeather()]);
+    const [data] = await Promise.all([loadWeather(), loadCorridorWeather(), loadGridWeather()]);
     if(!data){
       document.getElementById('hl-text').innerHTML = '<div class="hl-secondary" style="color:var(--red)">No se pudo cargar el pronóstico. Reintenta.</div>';
       return;
@@ -1293,37 +1362,9 @@ function refreshCorridors(){
   if(corridorLabelLayer) corridorLabelLayer.clearLayers();
   // Outside clima mode, corridors live in the side panel as a list and stay off the map.
   if(mode !== 'clima' || !layerVis.corr) return;
-  CORRIDORS.forEach((c, ci) => {
-    // Faint base outline so the user can read the federal network even where no weather hits.
-    L.polyline(c.wp, {color:'#fff', weight:1.3, opacity:0.16, interactive:false, pane:'climaCorridor'}).addTo(corridorLayer);
-    const segWeather = corridorWeatherData && corridorWeatherData[ci];
-    if(!segWeather) return;
-    for(let pi = 0; pi < c.wp.length - 1; pi++){
-      const a = c.wp[pi], b = c.wp[pi+1];
-      const wa = segWeather[pi], wb = segWeather[pi+1];
-      if(!wa || !wb) continue;
-      const rainA = (wa.precipitation_sum && wa.precipitation_sum[wk]) || 0;
-      const rainB = (wb.precipitation_sum && wb.precipitation_sum[wk]) || 0;
-      const windA = (wa.wind_speed_10m_max && wa.wind_speed_10m_max[wk]) || 0;
-      const windB = (wb.wind_speed_10m_max && wb.wind_speed_10m_max[wk]) || 0;
-      const avgRain = (rainA + rainB) / 2;
-      const avgWind = (windA + windB) / 2;
-      const { intensity, useWind } = climaIntensityAt(avgRain, avgWind);
-      if(intensity < 0.05) continue;
-      const color = useWind ? '#ff9530' : '#3aa8ff';
-      const weight = 2 + intensity * 6;
-      const opacity = 0.55 + intensity * 0.4;
-      const segLine = L.polyline([a, b], {color, weight, opacity, interactive:true, pane:'climaCorridor'});
-      const lvl = (intensity >= 0.75) ? 'Disrupción alta' : (intensity >= 0.35) ? 'Retrasos probables' : 'Afectación menor';
-      segLine.bindTooltip(
-        '<div class="tn">Corredor '+c.id+'</div>'+
-        '<div class="ts">'+c.name+'</div>'+
-        '<div class="tl" style="color:'+color+'">'+lvl.toUpperCase()+'</div>'+
-        '<div class="ti">'+avgRain.toFixed(1)+' mm · viento '+avgWind.toFixed(0)+' km/h</div>',
-        {direction:'top'}
-      );
-      segLine.addTo(corridorLayer);
-    }
+  // In clima mode, draw only a tenue base outline of the federal network on top of the rain heatmap.
+  CORRIDORS.forEach(c => {
+    L.polyline(c.wp, {color:'#fff', weight:1.2, opacity:0.22, interactive:false, pane:'climaCorridor'}).addTo(corridorLayer);
   });
 }
 
@@ -1363,36 +1404,43 @@ function refreshHex(){
   }
 }
 function refreshHexClima(){
-  // Smooth, continuous heatmap-style blobs. Opacity scales with intensity;
-  // colour swaps from blue (rain-dominant) to orange (wind-dominant).
-  const RINGS = [{km:90,baseOp:0.04},{km:65,baseOp:0.08},{km:45,baseOp:0.15},{km:28,baseOp:0.26},{km:17,baseOp:0.40},{km:9,baseOp:0.58}];
+  // Gridded rain heatmap (Windy-style) + small ZM markers on top.
+  // hexLayer is repurposed to hold the rectangular grid cells.
+  const half = GRID_STEP / 2;
+  if(gridWeatherData){
+    gridWeatherData.forEach(cell => {
+      if(!cell.daily || !cell.daily.precipitation_sum) return;
+      const mm = cell.daily.precipitation_sum[wk];
+      const style = rainStyleAleph(mm);
+      if(!style) return;
+      const bounds = [[cell.lat - half, cell.lng - half], [cell.lat + half, cell.lng + half]];
+      L.rectangle(bounds, {
+        stroke:false, weight:0, color:'transparent',
+        fillColor: style.fillColor, fillOpacity: style.fillOpacity,
+        interactive:false, pane:'gridHeatmap'
+      }).addTo(hexLayer);
+    });
+  }
+  // ZM markers — small white dots that always sit above the heatmap and stay clickable.
   const zoom = map.getZoom();
   ZONAS.forEach(z => {
     const rain = (z._climaRain && z._climaRain[wk] != null) ? z._climaRain[wk] : 0;
     const wind = (z._climaWind && z._climaWind[wk] != null) ? z._climaWind[wk] : 0;
-    const { intensity, useWind } = climaIntensityAt(rain, wind);
-    if(intensity < 0.05){
-      const dot = L.circleMarker([z.lat,z.lng], {radius:3, color:'rgba(255,255,255,0.25)', weight:1, fillColor:'#fff', fillOpacity:0.5, interactive:true});
-      dot.bindTooltip(buildTooltipHTML(z), {direction:'top',offset:[0,-4]});
-      dot.on('click', () => doSelect(z));
-      dot.addTo(dotsLayer);
-    } else {
-      const baseColor = useWind ? '#ff9530' : '#3aa8ff';
-      RINGS.forEach(ring => {
-        const op = ring.baseOp * intensity;
-        if(op < 0.02) return;
-        const poly = L.polygon(hexagonLatLng(z.lat,z.lng,ring.km), {color:'transparent', weight:0, fillColor:baseColor, fillOpacity:op, interactive:true});
-        poly.bindTooltip(buildTooltipHTML(z), {direction:'top',offset:[0,-4]});
-        poly.on('click', () => doSelect(z));
-        poly.addTo(hexLayer);
-      });
-    }
-    if(layerVis.labels && ((intensity>0.25 && zoom>=6) || zoom>=8)){
+    const { intensity } = climaIntensityAt(rain, wind);
+    const radius = intensity >= 0.35 ? 4 : 3;
+    const dot = L.circleMarker([z.lat,z.lng], {
+      radius, color:'rgba(0,0,0,0.55)', weight:1,
+      fillColor:'#fff', fillOpacity:0.92, interactive:true
+    });
+    dot.bindTooltip(buildTooltipHTML(z), {direction:'top',offset:[0,-4]});
+    dot.on('click', () => doSelect(z));
+    dot.addTo(dotsLayer);
+    if(layerVis.labels && ((intensity>0.35 && zoom>=6) || zoom>=8)){
       L.marker([z.lat,z.lng], {icon: L.divIcon({className:'', html:'<div class="zm-label">'+z.zm+'</div>', iconSize:null, iconAnchor:[0,-12]}), interactive:false, keyboard:false}).addTo(zmLabelLayer);
     }
   });
   if(sel){
-    L.polygon(hexagonLatLng(sel.lat,sel.lng,65), {color:'rgba(255,255,255,0.5)', weight:1.5, fill:false, interactive:false}).addTo(selectedLayer);
+    L.circleMarker([sel.lat, sel.lng], {radius:9, color:'rgba(255,255,255,0.85)', weight:1.5, fill:false, interactive:false}).addTo(selectedLayer);
   }
 }
 function refreshMap(){ refreshCorridors(); refreshHex(); }
@@ -1639,7 +1687,10 @@ try {
 
   L.control.zoom({position: 'bottomright'}).addTo(map);
 
-  // Custom pane so clima-mode corridor segments stay above the heatmap blobs
+  // Custom panes for clima mode: grid heatmap (bottom) + corridor outlines (above)
+  map.createPane('gridHeatmap');
+  map.getPane('gridHeatmap').style.zIndex = 410;
+  map.getPane('gridHeatmap').style.pointerEvents = 'none';
   map.createPane('climaCorridor');
   map.getPane('climaCorridor').style.zIndex = 450;
 
