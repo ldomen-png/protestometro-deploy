@@ -972,18 +972,20 @@ const CLIMA_SCALE = { rainNorm:40, windNorm:70 }; // mm and km/h that map to "ma
 const GRID_STEP = 0.75;
 const GRID_BOUNDS = { minLat:14, maxLat:33, minLng:-118, maxLng:-86 };
 
-// Aleph-branded rain scale: cian → turquesa → amarillo Aleph → naranja → rojo
+// Aleph-branded rain scale: cian → turquesa → amarillo Aleph → naranja → rojo.
+// Starts with a higher floor alpha so even drizzle (1mm) is clearly visible
+// once the dark map-overlay blend mode multiplies it.
 const RAIN_STOPS = [
-  { mm:0,  rgb:[58,168,255],  a:0    },
-  { mm:1,  rgb:[58,168,255],  a:0.22 },
-  { mm:4,  rgb:[58,168,255],  a:0.45 },
-  { mm:10, rgb:[62,192,173],  a:0.60 },
-  { mm:18, rgb:[228,194,73],  a:0.70 },
-  { mm:28, rgb:[255,149,48],  a:0.80 },
-  { mm:50, rgb:[224,48,32],   a:0.90 }
+  { mm:0,   rgb:[58,168,255],  a:0    },
+  { mm:0.5, rgb:[58,168,255],  a:0.35 },
+  { mm:4,   rgb:[58,168,255],  a:0.60 },
+  { mm:10,  rgb:[62,192,173],  a:0.70 },
+  { mm:18,  rgb:[228,194,73],  a:0.78 },
+  { mm:28,  rgb:[255,149,48],  a:0.85 },
+  { mm:50,  rgb:[224,48,32],   a:0.92 }
 ];
 function rainStyleAleph(mm){
-  if(mm == null || mm < 0.5) return null;
+  if(mm == null || mm < 0.3) return null;
   for(let i = 0; i < RAIN_STOPS.length - 1; i++){
     const a = RAIN_STOPS[i], b = RAIN_STOPS[i+1];
     if(mm >= a.mm && mm < b.mm){
@@ -1012,7 +1014,10 @@ function loadGridWeather(){
   if(gridWeatherData) return Promise.resolve(gridWeatherData);
   if(gridWeatherInflight) return gridWeatherInflight;
   const grid = generateMexicoGrid();
-  const BATCH = 900;
+  // Batches of ~200 keep each URL under ~3KB. Open-Meteo (and many CDNs) reject
+  // URLs longer than ~8KB. Six small batches finish in parallel faster than one
+  // huge one anyway.
+  const BATCH = 200;
   const batches = [];
   for(let i = 0; i < grid.length; i += BATCH) batches.push(grid.slice(i, i + BATCH));
   const fetchBatch = (pts) => {
@@ -1021,18 +1026,22 @@ function loadGridWeather(){
     const url = 'https://api.open-meteo.com/v1/forecast?latitude='+lats+'&longitude='+lngs
       +'&daily=precipitation_sum,wind_speed_10m_max'
       +'&timezone=America%2FMexico_City&forecast_days=7';
-    return fetch(url).then(r => r.json()).then(d => Array.isArray(d) ? d : [d]);
+    return fetch(url).then(r => {
+      if(!r.ok) throw new Error('Open-Meteo '+r.status+' for '+pts.length+' pts');
+      return r.json();
+    }).then(d => Array.isArray(d) ? d : [d]);
   };
   gridWeatherInflight = Promise.all(batches.map(fetchBatch)).then(results => {
     const out = [];
     results.forEach((batchResult, bi) => {
       batchResult.forEach((fc, pi) => {
         const p = batches[bi][pi];
-        out.push({ lat:p.lat, lng:p.lng, daily: fc && fc.daily ? fc.daily : null });
+        out.push({ lat:p.lat, lng:p.lng, daily: (fc && fc.daily) ? fc.daily : null });
       });
     });
     gridWeatherData = out;
     gridWeatherInflight = null;
+    console.log('Grid weather loaded:', out.length, 'cells across', batches.length, 'batches');
     return gridWeatherData;
   }).catch(e => { console.warn('Grid weather failed:', e); gridWeatherInflight = null; return null; });
   return gridWeatherInflight;
@@ -1407,19 +1416,24 @@ function refreshHexClima(){
   // Gridded rain heatmap (Windy-style) + small ZM markers on top.
   // hexLayer is repurposed to hold the rectangular grid cells.
   const half = GRID_STEP / 2;
+  let drawn = 0, skipped = 0;
   if(gridWeatherData){
     gridWeatherData.forEach(cell => {
-      if(!cell.daily || !cell.daily.precipitation_sum) return;
+      if(!cell.daily || !cell.daily.precipitation_sum){ skipped++; return; }
       const mm = cell.daily.precipitation_sum[wk];
       const style = rainStyleAleph(mm);
-      if(!style) return;
+      if(!style){ skipped++; return; }
       const bounds = [[cell.lat - half, cell.lng - half], [cell.lat + half, cell.lng + half]];
       L.rectangle(bounds, {
         stroke:false, weight:0, color:'transparent',
         fillColor: style.fillColor, fillOpacity: style.fillOpacity,
         interactive:false, pane:'gridHeatmap'
       }).addTo(hexLayer);
+      drawn++;
     });
+    console.log('Heatmap day '+wk+': drew '+drawn+' cells, skipped '+skipped+' (dry / no data)');
+  } else {
+    console.warn('refreshHexClima: gridWeatherData is null — fetch likely failed');
   }
   // ZM markers — small white dots that always sit above the heatmap and stay clickable.
   const zoom = map.getZoom();
