@@ -379,6 +379,61 @@ html,body{height:100%;width:100%;overflow:hidden;font-family:'Inter',sans-serif;
 #map{position:absolute;inset:0;background:#0a0a0a;}
 .leaflet-container{background:#0a0a0a!important;font-family:'Inter',sans-serif!important;touch-action:none!important;}
 
+/* NEWS TICKER (live feed, bottom of map, Bloomberg-style) */
+#news-ticker{
+  position:absolute;bottom:0;left:0;right:0;
+  height:34px;
+  background:rgba(6,7,10,0.92);
+  -webkit-backdrop-filter:blur(24px) saturate(180%);
+  backdrop-filter:blur(24px) saturate(180%);
+  border-top:1px solid rgba(255,255,255,0.10);
+  display:flex;align-items:center;z-index:600;
+  overflow:hidden;font-family:'Inter',sans-serif;
+}
+.ticker-label{
+  background:var(--red);color:#fff;
+  font-size:9px;font-weight:700;letter-spacing:0.14em;
+  padding:4px 9px;margin:0 10px;border-radius:3px;flex-shrink:0;
+  display:flex;align-items:center;gap:5px;
+}
+.ticker-label .ticker-dot{
+  width:6px;height:6px;border-radius:50%;background:#fff;
+  animation:tickerPulse 1.4s infinite;
+}
+@keyframes tickerPulse{
+  0%,100%{opacity:1;}
+  50%{opacity:0.35;}
+}
+.ticker-viewport{
+  flex:1;position:relative;overflow:hidden;height:34px;
+}
+.ticker-track{
+  position:absolute;top:0;left:0;height:100%;
+  white-space:nowrap;display:flex;align-items:center;
+  will-change:transform;
+}
+.ticker-item{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:0 22px;height:100%;
+  font-size:12px;color:rgba(255,255,255,0.92);
+  cursor:pointer;flex-shrink:0;
+  border-right:1px solid rgba(255,255,255,0.06);
+  transition:color 0.15s;
+}
+.ticker-item:hover{color:var(--aleph-yellow);}
+.ticker-item .ti-icon{font-size:13px;line-height:1;}
+.ticker-item .ti-loc{font-weight:600;letter-spacing:0.01em;}
+.ticker-item .ti-detail{color:rgba(255,255,255,0.7);font-weight:400;}
+.ticker-item.ti-red .ti-icon{color:var(--red);}
+.ticker-item.ti-yellow .ti-icon{color:var(--aleph-yellow);}
+.ticker-item.ti-blue .ti-icon{color:#3aa8ff;}
+.ticker-item.ti-orange .ti-icon{color:#ff9530;}
+.ticker-empty{padding:0 14px;font-size:11px;color:rgba(255,255,255,0.4);font-style:italic;}
+@media(max-width:760px){
+  /* Hide on small screens — competes with the bottom rail and is cramped */
+  #news-ticker{display:none;}
+}
+
 /* Dark mode: subtle filter + overlay, keeping map legible */
 #map-overlay{
   position:absolute;inset:0;pointer-events:none;z-index:399;
@@ -387,6 +442,12 @@ html,body{height:100%;width:100%;overflow:hidden;font-family:'Inter',sans-serif;
 .leaflet-tile{filter:brightness(0.85) saturate(0.75) contrast(0.95);}
 .leaflet-control-attribution{font-size:9px!important;background:rgba(0,0,0,0.6)!important;color:rgba(255,255,255,0.5)!important;}
 .leaflet-control-attribution a{color:rgba(255,255,255,0.65)!important;}
+/* Shift bottom-right controls up so the ticker doesn't cover them */
+.leaflet-bottom.leaflet-right{margin-bottom:38px;}
+@media(max-width:760px){.leaflet-bottom.leaflet-right{margin-bottom:0;}}
+/* Also shift the clima legend up so the ticker doesn't cover it */
+#clima-legend{bottom:48px!important;}
+@media(max-width:760px){#clima-legend{bottom:calc(56px + env(safe-area-inset-bottom, 0px) + 90px)!important;}}
 
 /* ZM labels (DivIcon) */
 .zm-label{
@@ -761,6 +822,13 @@ html,body{height:100%;width:100%;overflow:hidden;font-family:'Inter',sans-serif;
     <div id="mapwrap">
       <div id="map"></div>
       <div id="map-overlay"></div>
+      <!-- Live news ticker (cross-feed: protestas + clima) -->
+      <div id="news-ticker">
+        <div class="ticker-label"><span class="ticker-dot"></span>EN VIVO</div>
+        <div class="ticker-viewport">
+          <div class="ticker-track" id="ticker-track"></div>
+        </div>
+      </div>
       <!-- Clima legend (only shown in clima mode) -->
       <div id="clima-legend">
         <div class="cl-row">
@@ -1204,10 +1272,147 @@ async function setMode(newMode){
   const legend = document.getElementById('clima-legend');
   if(legend) legend.classList.toggle('on', mode === 'clima');
   applyHistoricoCopy();
+  renderTicker();
   if(map) refreshMap();
   renderAll();
   if(sel) showDet(sel);
 }
+
+// ── LIVE TICKER (Bloomberg-style cross-feed) ────────────────────────────
+const tickerState = { offsetX: 0, paused: false, rafId: null };
+function getProtestasSemanasFor(zoneIndex){
+  // Returns the protestas-mode semanas array regardless of current mode.
+  // In clima mode the live ZONAS array holds clima levels (data swap), so we
+  // fall back to the backup we made when entering clima mode.
+  if(mode === 'protestas') return ZONAS[zoneIndex].semanas;
+  return savedProtestasSemanas ? savedProtestasSemanas[zoneIndex] : null;
+}
+function getProtestasSEMANAS(){
+  return mode === 'protestas' ? SEMANAS : (savedProtestasDates || SEMANAS);
+}
+function buildTickerItems(){
+  const items = [];
+  // ─── Protestas: latest week of the real CSV ──────────────────────────
+  const protestasWeeks = getProtestasSEMANAS();
+  const latestIdx = protestasWeeks.length - 1;
+  const inAlertNow = [];
+  ZONAS.forEach((z, i) => {
+    const sem = getProtestasSemanasFor(i);
+    if(!sem) return;
+    const lvl = sem[latestIdx];
+    if(lvl > 0) inAlertNow.push({ z, lvl, i });
+  });
+  // Sort by level (red first) then by total activity descending
+  inAlertNow.sort((a,b) => {
+    if(b.lvl !== a.lvl) return b.lvl - a.lvl;
+    const sa = getProtestasSemanasFor(a.i), sb = getProtestasSemanasFor(b.i);
+    return sb.filter(v=>v>0).length - sa.filter(v=>v>0).length;
+  });
+  inAlertNow.forEach(({z, lvl}) => {
+    items.push({
+      cve: z.cve,
+      tone: lvl === 2 ? 'red' : 'yellow',
+      icon: lvl === 2 ? '●' : '●',
+      loc: z.zm.toUpperCase(),
+      detail: lvl === 2 ? 'Protesta nivel rojo · esta semana' : 'Protesta nivel amarillo · esta semana'
+    });
+  });
+  // ─── Protestas: deltas vs previous week ──────────────────────────────
+  if(latestIdx > 0){
+    // computeDeltas reads ZONAS[i].semanas directly — need to make it work
+    // even when we're in clima mode. Trick: compute deltas inline against
+    // the backed-up array.
+    const cur = latestIdx, prev = latestIdx - 1;
+    ZONAS.forEach((z, i) => {
+      const sem = getProtestasSemanasFor(i);
+      if(!sem) return;
+      const a = sem[prev], b = sem[cur];
+      if(a === 0 && b > 0){
+        items.push({ cve: z.cve, tone: 'red', icon: '▲', loc: z.zm.toUpperCase(), detail: 'Nueva alerta esta semana' });
+      } else if(a > 0 && b > a){
+        items.push({ cve: z.cve, tone: 'red', icon: '▲', loc: z.zm.toUpperCase(), detail: 'Escaló a rojo esta semana' });
+      } else if(a > 0 && b === 0){
+        items.push({ cve: z.cve, tone: 'yellow', icon: '○', loc: z.zm.toUpperCase(), detail: 'Resuelta esta semana' });
+      }
+    });
+  }
+  // ─── Clima: severe rain / wind forecasts in next 7 days ──────────────
+  if(weatherData){
+    const dayPhrase = (i) => i===0 ? 'hoy' : i===1 ? 'mañana' : ('en '+i+' días');
+    ZONAS.forEach((z, i) => {
+      const fc = weatherData[i];
+      if(!fc || !fc.daily) return;
+      const rain = fc.daily.precipitation_sum || [];
+      const wind = fc.daily.wind_speed_10m_max || [];
+      // Find peak rain day above threshold
+      let maxRain = 0, maxRainIdx = -1;
+      rain.forEach((r, di) => { if(r > maxRain){ maxRain = r; maxRainIdx = di; }});
+      if(maxRain > 25){
+        items.push({
+          cve: z.cve,
+          tone: maxRain > 40 ? 'red' : 'blue',
+          icon: '⛆',
+          loc: z.zm.toUpperCase(),
+          detail: maxRain.toFixed(0)+'mm lluvia esperada '+dayPhrase(maxRainIdx)
+        });
+      }
+      // Find peak wind
+      let maxWind = 0, maxWindIdx = -1;
+      wind.forEach((w, di) => { if(w > maxWind){ maxWind = w; maxWindIdx = di; }});
+      if(maxWind > 55){
+        items.push({
+          cve: z.cve,
+          tone: 'orange',
+          icon: '↯',
+          loc: z.zm.toUpperCase(),
+          detail: 'Viento '+maxWind.toFixed(0)+' km/h '+dayPhrase(maxWindIdx)
+        });
+      }
+    });
+  }
+  return items;
+}
+function renderTicker(){
+  const track = document.getElementById('ticker-track');
+  if(!track) return;
+  const items = buildTickerItems();
+  if(items.length === 0){
+    track.innerHTML = '<div class="ticker-empty">Sin alertas activas en este momento.</div>';
+    tickerState.offsetX = 0;
+    track.style.transform = 'translateX(0)';
+    return;
+  }
+  const html = items.map(it =>
+    '<div class="ticker-item ti-'+it.tone+'" onclick="clkZ('+it.cve+')">'
+    +'<span class="ti-icon">'+it.icon+'</span>'
+    +'<span class="ti-loc">'+it.loc+'</span>'
+    +'<span class="ti-detail">'+it.detail+'</span>'
+    +'</div>'
+  ).join('');
+  // Duplicate so the scroll loops seamlessly
+  track.innerHTML = html + html;
+  tickerState.offsetX = 0;
+  track.style.transform = 'translateX(0)';
+}
+function animateTicker(){
+  const track = document.getElementById('ticker-track');
+  if(!track){ tickerState.rafId = requestAnimationFrame(animateTicker); return; }
+  if(!tickerState.paused){
+    tickerState.offsetX -= 0.6; // ~36 px/s at 60fps; comfortable reading speed
+    const halfWidth = track.scrollWidth / 2;
+    if(halfWidth > 0 && Math.abs(tickerState.offsetX) >= halfWidth){
+      tickerState.offsetX = 0;
+    }
+    track.style.transform = 'translateX('+tickerState.offsetX+'px)';
+  }
+  tickerState.rafId = requestAnimationFrame(animateTicker);
+}
+(function initTickerEvents(){
+  const el = document.getElementById('news-ticker');
+  if(!el) return;
+  el.addEventListener('mouseenter', () => { tickerState.paused = true; });
+  el.addEventListener('mouseleave', () => { tickerState.paused = false; });
+})();
 
 function applyHistoricoCopy(){
   const isClima = (mode === 'clima');
@@ -1836,6 +2041,8 @@ function renderCorridors(){
 
 // Initial render (works without map)
 renderAll();
+renderTicker();
+tickerState.rafId = requestAnimationFrame(animateTicker);
 
 // ════════════════════════════════════════════════════════════════════════
 // Map init
