@@ -403,6 +403,15 @@ html,body{height:100%;width:100%;overflow:hidden;font-family:'Inter',sans-serif;
 }
 .corr-label.affected{border-color:rgba(224,48,32,0.7);color:#ff8070;}
 
+/* Smooth the grid-heatmap cells into Windy-style soft areas instead of
+   sharp 0.5° squares. The blur is applied to the entire pane, so the
+   canvas-rendered rectangles merge visually without changing the data. */
+.leaflet-gridHeatmap-pane{
+  filter:blur(9px);
+  -webkit-filter:blur(9px);
+  will-change:filter;
+}
+
 /* CLIMA LEGEND (only visible in clima mode) */
 #clima-legend{
   display:none;position:absolute;bottom:100px;right:14px;
@@ -684,20 +693,21 @@ html,body{height:100%;width:100%;overflow:hidden;font-family:'Inter',sans-serif;
       <!-- HISTÓRICO -->
       <div class="panel-content" data-panel="historico" style="display:none;flex-direction:column;flex:1;min-height:0">
         <div class="panel-header">
-          <div class="panel-title">Histórico</div>
+          <div class="panel-title" id="hist-title">Histórico</div>
           <div class="panel-close" data-close role="button" tabindex="0">✕</div>
         </div>
         <div class="panel-body">
           <div class="section">
-            <div style="font-size:11px;color:rgba(255,255,255,0.6);line-height:1.5;margin-bottom:8px;">
+            <div id="hist-intro" style="font-size:11px;color:rgba(255,255,255,0.6);line-height:1.5;margin-bottom:8px;">
               17 semanas monitoreadas, ordenadas por frecuencia. Click en barra para saltar a esa semana.
             </div>
-            <div style="display:flex;gap:10px;font-size:10px;color:var(--text-dim);">
+            <div id="hist-legend" style="display:flex;gap:10px;font-size:10px;color:var(--text-dim);">
               <span><span style="display:inline-block;width:8px;height:8px;background:var(--red);border-radius:1px;vertical-align:middle;margin-right:3px;"></span>Rojo</span>
               <span><span style="display:inline-block;width:8px;height:8px;background:var(--aleph-yellow);border-radius:1px;vertical-align:middle;margin-right:3px;"></span>Amarillo</span>
               <span><span style="display:inline-block;width:8px;height:8px;background:rgba(255,255,255,0.08);border:1px solid var(--border);border-radius:1px;vertical-align:middle;margin-right:3px;"></span>Sin alerta</span>
             </div>
           </div>
+          <div id="hist-day-header" style="display:none;align-items:center;gap:8px;padding:6px 16px 4px;border-bottom:1px solid rgba(255,255,255,0.06);"></div>
           <div id="hist-list"></div>
         </div>
       </div>
