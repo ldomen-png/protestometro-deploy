@@ -1253,7 +1253,17 @@ function applyHistoricoCopy(){
         +'<div style="min-width:46px;text-align:right;font-size:9px;color:var(--text-dim);font-weight:600;letter-spacing:0.04em;text-transform:uppercase">Máx</div>';
       dayHeader.style.display = 'flex';
     } else {
-      dayHeader.style.display = 'none';
+      // PROTESTAS: month bands above the 17 weekly bars (proportional to weeks per month)
+      // ene:2 weeks, feb:4, mar:4, abr:4, may:3 — flex values match
+      const months = [['Ene',2],['Feb',4],['Mar',4],['Abr',4],['May',3]];
+      const bands = months.map(([label, weeks]) =>
+        '<div style="flex:'+weeks+';text-align:center;font-size:9px;color:var(--text-dim);font-weight:600;letter-spacing:0.04em;text-transform:uppercase;border-right:1px solid rgba(255,255,255,0.06)">'+label+'</div>'
+      ).join('');
+      dayHeader.innerHTML =
+        '<div style="flex:0 0 100px;font-size:9px;color:var(--text-dim);font-weight:600;letter-spacing:0.05em;text-transform:uppercase">Zona</div>'
+        +'<div style="flex:1;display:flex;align-items:center">'+bands+'</div>'
+        +'<div style="min-width:46px;text-align:right;font-size:9px;color:var(--text-dim);font-weight:600;letter-spacing:0.04em;text-transform:uppercase">Activas</div>';
+      dayHeader.style.display = 'flex';
     }
   }
 }
@@ -1596,7 +1606,7 @@ function showDet(z){
   document.getElementById('dch').innerHTML = z.semanas.map((v,i)=>{
     const h = v===0?2:v===1?16:32;
     const c = v===2?'#e03020':v===1?'#e4c249':'rgba(255,255,255,0.07)';
-    const hl = i===wk?'outline:1.5px solid rgba(255,255,255,0.45);outline-offset:1px;':'';
+    const hl = i===wk?'outline:2px solid var(--aleph-yellow);outline-offset:1px;box-shadow:0 0 6px rgba(228,194,73,0.5);':'';
     return '<div class="dbar" style="height:'+h+'px;background:'+c+';'+hl+'"></div>';
   }).join('');
   const p = computePatterns(z);
@@ -1758,7 +1768,7 @@ function renderHistory(){
         const cssColor = rainCssColor(mm);
         const bg = cssColor || 'rgba(255,255,255,0.06)';
         const bd = cssColor ? '' : 'border:1px solid rgba(255,255,255,0.10)';
-        const hl = i===wk ? 'outline:1.5px solid rgba(255,255,255,0.45);outline-offset:1px;' : '';
+        const hl = i===wk ? 'outline:2px solid var(--aleph-yellow);outline-offset:1px;box-shadow:0 0 6px rgba(228,194,73,0.5);' : '';
         const title = ((mm!=null?mm.toFixed(1):'0.0')+' mm · '+fmtD(SEMANAS[i]));
         return '<div class="hist-bar" style="background:'+bg+';'+bd+';'+hl+'" onclick="event.stopPropagation();jmpW('+i+')" title="'+title+'"></div>';
       }).join('');
@@ -1774,7 +1784,7 @@ function renderHistory(){
     const bars = z.semanas.map((v,i) => {
       const c = v===2?'#e03020':v===1?'#e4c249':'rgba(255,255,255,0.08)';
       const bd = v===0?'border:1px solid rgba(255,255,255,0.1)':'';
-      const hl = i===wk?'outline:1.5px solid rgba(255,255,255,0.45);outline-offset:1px;':'';
+      const hl = i===wk?'outline:2px solid var(--aleph-yellow);outline-offset:1px;box-shadow:0 0 6px rgba(228,194,73,0.5);':'';
       return '<div class="hist-bar" style="background:'+c+';'+bd+';'+hl+'" onclick="event.stopPropagation();jmpW('+i+')" title="'+fmtD(SEMANAS[i])+'"></div>';
     }).join('');
     return '<div class="hist-row"><div class="hist-name" onclick="clkZ('+z.cve+')">'+z.zm+'</div><div class="hist-bars">'+bars+'</div><div class="hist-count">'+z.alertas+'/'+SEMANAS.length+'</div></div>';
