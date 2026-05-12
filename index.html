@@ -585,11 +585,17 @@ html,body{height:100%;width:100%;overflow:hidden;font-family:'Inter',sans-serif;
 
 /* ── MOBILE ───────────────────────────────────────────────── */
 @media(max-width:760px){
-  #header{padding:0 12px;gap:8px;height:48px;}
-  .brand-divider{margin:0 10px;}
+  #header{padding:0 10px;gap:6px;height:48px;}
+  .brand-divider{display:none;}
   .brand-product{display:none;}
-  .brand-logo-img{height:20px;}
+  .brand-logo-img{height:18px;}
   #hamburger{flex-shrink:0;width:30px;height:30px;}
+  /* Tighten hist-name on mobile so the day-header bars get more room */
+  .hist-name{flex:0 0 80px!important;}
+  #hist-day-header > div:first-child{flex:0 0 80px!important;}
+  /* hist-count also gets snug */
+  .hist-count{min-width:38px!important;font-size:9px;}
+  #hist-day-header > div:last-child{min-width:38px!important;}
 
   /* Bottom navigation rail */
   #rail{
@@ -971,7 +977,7 @@ function buildHeadline(weekIdx, compact){
     if(weekIdx > 0){
       const parts = [];
       if(d.new.length > 0) parts.push('<span class="hl-num red">+'+d.new.length+'</span> nueva'+(d.new.length>1?'s':''));
-      if(d.cleared.length > 0) parts.push('<span class="hl-num green">−'+d.cleared.length+'</span> '+(isClima?'despejada':'resuelta')+(d.cleared.length>1?'s':''));
+      if(d.cleared.length > 0) parts.push('<span class="hl-num green">−'+d.cleared.length+'</span> '+(isClima?'despejada':'sin alertas')+(d.cleared.length>1 && isClima ?'s':''));
       if(parts.length) s += ' <span class="hl-sep">·</span> '+parts.join(' ');
     }
     return s;
@@ -1015,7 +1021,7 @@ function buildHeadline(weekIdx, compact){
       if(d.new.length > 0) deltaParts.push('<div class="hl-delta-row"><span class="hl-num red">+'+d.new.length+'</span> zona'+(d.new.length>1?'s':'')+' nueva'+(d.new.length>1?'s':'')+' en alerta</div>');
       if(d.up.length > 0) deltaParts.push('<div class="hl-delta-row"><span class="hl-num red">↑'+d.up.length+'</span> escal'+(d.up.length>1?'aron':'ó')+' de nivel</div>');
       if(d.down.length > 0) deltaParts.push('<div class="hl-delta-row"><span class="hl-num green">↓'+d.down.length+'</span> baj'+(d.down.length>1?'aron':'ó')+' de nivel</div>');
-      if(d.cleared.length > 0) deltaParts.push('<div class="hl-delta-row"><span class="hl-num green">−'+d.cleared.length+'</span> zona'+(d.cleared.length>1?'s':'')+' '+(isClima?'despejada':'resuelta')+(d.cleared.length>1?'s':'')+'</div>');
+      if(d.cleared.length > 0) deltaParts.push('<div class="hl-delta-row"><span class="hl-num green">−'+d.cleared.length+'</span> zona'+(d.cleared.length>1?'s':'')+' '+(isClima?'despejada'+(d.cleared.length>1?'s':''):'sin alertas')+'</div>');
       html += deltaParts.join('');
     }
   }
@@ -1332,7 +1338,7 @@ function buildTickerItems(){
       } else if(a > 0 && b > a){
         items.push({ cve: z.cve, tone: 'red', icon: '▲', loc: z.zm.toUpperCase(), detail: 'Escaló a rojo esta semana' });
       } else if(a > 0 && b === 0){
-        items.push({ cve: z.cve, tone: 'yellow', icon: '○', loc: z.zm.toUpperCase(), detail: 'Resuelta esta semana' });
+        items.push({ cve: z.cve, tone: 'yellow', icon: '○', loc: z.zm.toUpperCase(), detail: 'Sin alertas esta semana' });
       }
     });
   }
@@ -1896,7 +1902,7 @@ function renderAll(){
     d.new.forEach(z => rows.push('<div class="change-row new" onclick="clkZ('+z.cve+')"><span class="change-icon up">●</span><span class="change-name">'+z.zm+'</span><span class="change-tag">NUEVA</span></div>'));
     d.up.forEach(z => rows.push('<div class="change-row up" onclick="clkZ('+z.cve+')"><span class="change-icon up">▲</span><span class="change-name">'+z.zm+'</span><span class="change-tag">SUBE</span></div>'));
     d.down.forEach(z => rows.push('<div class="change-row down" onclick="clkZ('+z.cve+')"><span class="change-icon down">▼</span><span class="change-name">'+z.zm+'</span><span class="change-tag">BAJA</span></div>'));
-    d.cleared.forEach(z => rows.push('<div class="change-row cleared" onclick="clkZ('+z.cve+')"><span class="change-icon down">○</span><span class="change-name">'+z.zm+'</span><span class="change-tag">RESUELTA</span></div>'));
+    d.cleared.forEach(z => rows.push('<div class="change-row cleared" onclick="clkZ('+z.cve+')"><span class="change-icon down">○</span><span class="change-name">'+z.zm+'</span><span class="change-tag">SIN ALERTA</span></div>'));
     changesEl.innerHTML = rows.join('');
   }
 
