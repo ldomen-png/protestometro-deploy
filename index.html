@@ -1427,7 +1427,7 @@ function refreshHexClima(){
       L.rectangle(bounds, {
         stroke:false, weight:0, color:'transparent',
         fillColor: style.fillColor, fillOpacity: style.fillOpacity,
-        interactive:false, pane:'gridHeatmap'
+        interactive:false, renderer: window._gridRenderer
       }).addTo(hexLayer);
       drawn++;
     });
@@ -1701,10 +1701,14 @@ try {
 
   L.control.zoom({position: 'bottomright'}).addTo(map);
 
-  // Custom panes for clima mode: grid heatmap (bottom) + corridor outlines (above)
+  // Custom panes for clima mode: grid heatmap (bottom) + corridor outlines (above).
+  // Canvas renderer is much cheaper than SVG for ~1k rectangles and avoids the
+  // "pane has no renderer" SVG quirk that silently drops paths into the void.
   map.createPane('gridHeatmap');
   map.getPane('gridHeatmap').style.zIndex = 410;
   map.getPane('gridHeatmap').style.pointerEvents = 'none';
+  window._gridRenderer = L.canvas({ pane:'gridHeatmap', padding:0.5 });
+  window._gridRenderer.addTo(map);
   map.createPane('climaCorridor');
   map.getPane('climaCorridor').style.zIndex = 450;
 
