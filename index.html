@@ -760,6 +760,7 @@ html,body{height:100%;width:100%;overflow:hidden;font-family:'Inter',sans-serif;
             <div class="cl-marks"><span>1</span><span>10</span><span>18</span><span>28</span><span>50+ mm</span></div>
           </div>
         </div>
+        <div id="clima-debug" style="margin-top:6px;font-size:9px;color:rgba(255,255,255,0.55);font-family:monospace">—</div>
       </div>
       <!-- Mobile floating headline -->
       <div id="float-headline">
@@ -1010,38 +1011,73 @@ function generateMexicoGrid(){
   }
   return points;
 }
-function loadGridWeather(){
-  if(gridWeatherData) return Promise.resolve(gridWeatherData);
+const GRID_CACHE_KEY = 'climometro_grid_v1';
+function loadCachedGrid(){
+  try {
+    const raw = localStorage.getItem(GRID_CACHE_KEY);
+    if(!raw) return null;
+    const obj = JSON.parse(raw);
+    const today = new Date().toISOString().slice(0,10);
+    if(obj.date !== today || !Array.isArray(obj.cells)) return null;
+    return obj.cells;
+  } catch(e){ return null; }
+}
+function saveGridCache(cells){
+  try {
+    const today = new Date().toISOString().slice(0,10);
+    localStorage.setItem(GRID_CACHE_KEY, JSON.stringify({ date: today, cells }));
+  } catch(e){ /* quota / disabled — ignore */ }
+}
+async function loadGridWeather(onProgress){
+  if(gridWeatherData) return gridWeatherData;
   if(gridWeatherInflight) return gridWeatherInflight;
+  // Cache hit (same calendar day) — instant load, no network
+  const cached = loadCachedGrid();
+  if(cached){
+    gridWeatherData = cached;
+    if(onProgress) onProgress({ phase:'cache', total: cached.length });
+    return gridWeatherData;
+  }
   const grid = generateMexicoGrid();
-  // Batches of ~200 keep each URL under ~3KB. Open-Meteo (and many CDNs) reject
-  // URLs longer than ~8KB. Six small batches finish in parallel faster than one
-  // huge one anyway.
-  const BATCH = 200;
+  // Sequential batches with a small gap so Open-Meteo's free tier doesn't 429
+  // us for bursting. 300 pts per call keeps each URL well under 8KB.
+  const BATCH = 300;
   const batches = [];
   for(let i = 0; i < grid.length; i += BATCH) batches.push(grid.slice(i, i + BATCH));
-  const fetchBatch = (pts) => {
+  const fetchBatch = async (pts) => {
     const lats = pts.map(p => p.lat).join(',');
     const lngs = pts.map(p => p.lng).join(',');
     const url = 'https://api.open-meteo.com/v1/forecast?latitude='+lats+'&longitude='+lngs
       +'&daily=precipitation_sum,wind_speed_10m_max'
       +'&timezone=America%2FMexico_City&forecast_days=7';
-    return fetch(url).then(r => {
-      if(!r.ok) throw new Error('Open-Meteo '+r.status+' for '+pts.length+' pts');
-      return r.json();
-    }).then(d => Array.isArray(d) ? d : [d]);
+    const r = await fetch(url);
+    if(!r.ok) throw new Error('Open-Meteo '+r.status+' for '+pts.length+' pts');
+    const d = await r.json();
+    return Array.isArray(d) ? d : [d];
   };
-  gridWeatherInflight = Promise.all(batches.map(fetchBatch)).then(results => {
+  const run = async () => {
     const out = [];
-    results.forEach((batchResult, bi) => {
-      batchResult.forEach((fc, pi) => {
-        const p = batches[bi][pi];
-        out.push({ lat:p.lat, lng:p.lng, daily: (fc && fc.daily) ? fc.daily : null });
-      });
-    });
+    for(let bi = 0; bi < batches.length; bi++){
+      if(onProgress) onProgress({ phase:'fetch', current: bi+1, total: batches.length });
+      try {
+        const result = await fetchBatch(batches[bi]);
+        result.forEach((fc, pi) => {
+          const p = batches[bi][pi];
+          out.push({ lat:p.lat, lng:p.lng, daily: (fc && fc.daily) ? fc.daily : null });
+        });
+      } catch(e){
+        console.warn('Grid batch '+(bi+1)+' failed:', e);
+        // Continue with whatever we have — partial data is better than none
+      }
+      if(bi < batches.length - 1) await new Promise(r => setTimeout(r, 250));
+    }
+    return out;
+  };
+  gridWeatherInflight = run().then(out => {
     gridWeatherData = out;
     gridWeatherInflight = null;
-    console.log('Grid weather loaded:', out.length, 'cells across', batches.length, 'batches');
+    if(out.length > 0) saveGridCache(out);
+    console.log('Grid weather loaded:', out.length, 'cells across', batches.length, 'sequential batches');
     return gridWeatherData;
   }).catch(e => { console.warn('Grid weather failed:', e); gridWeatherInflight = null; return null; });
   return gridWeatherInflight;
@@ -1110,10 +1146,23 @@ async function setMode(newMode){
     mode = 'clima';
     if(brand) brand.textContent = 'Clímometro';
     document.getElementById('hl-text').innerHTML = '<div class="hl-secondary">Cargando pronóstico…</div>';
-    const [data] = await Promise.all([loadWeather(), loadCorridorWeather(), loadGridWeather()]);
+    const dbg = (msg) => { const el = document.getElementById('clima-debug'); if(el) el.textContent = msg; };
+    dbg('Cargando ZMs…');
+    // Sequence the fetches to avoid Open-Meteo rate limits when we hit it with
+    // many parallel batches.
+    const data = await loadWeather();
     if(!data){
       document.getElementById('hl-text').innerHTML = '<div class="hl-secondary" style="color:var(--red)">No se pudo cargar el pronóstico. Reintenta.</div>';
+      dbg('Error: fetch ZM falló');
       return;
+    }
+    dbg('ZMs OK · cargando grid…');
+    const grid = await loadGridWeather();
+    if(!grid){
+      dbg('Error: fetch grid falló');
+    } else {
+      const sample = grid.filter(c => c.daily && c.daily.precipitation_sum).slice(0, 5).map(c => (c.daily.precipitation_sum[0]||0).toFixed(1));
+      dbg(grid.length+' celdas · muestra mm día 0: '+sample.join(', '));
     }
     ZONAS.forEach((z, i) => {
       const fc = data[i];
