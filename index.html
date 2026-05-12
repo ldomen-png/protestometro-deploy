@@ -970,7 +970,7 @@ let savedProtestasSemanas = null;
 let savedProtestasDates = null;
 const CLIMA_THRESHOLDS = { yellowRain:5, redRain:30, yellowWind:40, redWind:60 };
 const CLIMA_SCALE = { rainNorm:40, windNorm:70 }; // mm and km/h that map to "max intensity"
-const GRID_STEP = 0.75;
+const GRID_STEP = 0.5;
 const GRID_BOUNDS = { minLat:14, maxLat:33, minLng:-118, maxLng:-86 };
 
 // Aleph-branded rain scale: cian → turquesa → amarillo Aleph → naranja → rojo.
@@ -1011,7 +1011,7 @@ function generateMexicoGrid(){
   }
   return points;
 }
-const GRID_CACHE_KEY = 'climometro_grid_v1';
+const GRID_CACHE_KEY = 'climometro_grid_v2';  // bumped: 0.75° → 0.5° resolution
 function loadCachedGrid(){
   try {
     const raw = localStorage.getItem(GRID_CACHE_KEY);
@@ -1041,7 +1041,7 @@ async function loadGridWeather(onProgress){
   const grid = generateMexicoGrid();
   // Sequential batches with a small gap so Open-Meteo's free tier doesn't 429
   // us for bursting. 300 pts per call keeps each URL well under 8KB.
-  const BATCH = 300;
+  const BATCH = 500;
   const batches = [];
   for(let i = 0; i < grid.length; i += BATCH) batches.push(grid.slice(i, i + BATCH));
   const fetchBatch = async (pts) => {
