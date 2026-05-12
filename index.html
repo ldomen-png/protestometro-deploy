@@ -324,7 +324,7 @@ html,body{height:100%;width:100%;overflow:hidden;font-family:'Inter',sans-serif;
 .hist-name:hover{color:var(--aleph-yellow);}
 .hist-bars{flex:1;display:flex;gap:1px;align-items:center;height:14px;}
 .hist-bar{flex:1;height:100%;border-radius:1px;cursor:pointer;touch-action:manipulation;}
-.hist-count{font-size:10px;color:var(--text-dim);font-weight:500;min-width:22px;text-align:right;}
+.hist-count{font-size:10px;color:var(--text-dim);font-weight:500;min-width:46px;text-align:right;white-space:nowrap;}
 
 /* CORREDORES LIST */
 .corr-row{
@@ -1203,9 +1203,59 @@ async function setMode(newMode){
   recomputeZMStats();
   const legend = document.getElementById('clima-legend');
   if(legend) legend.classList.toggle('on', mode === 'clima');
+  applyHistoricoCopy();
   if(map) refreshMap();
   renderAll();
   if(sel) showDet(sel);
+}
+
+function applyHistoricoCopy(){
+  const isClima = (mode === 'clima');
+  const title = document.getElementById('hist-title');
+  if(title) title.textContent = isClima ? 'Pronóstico 7 días' : 'Histórico';
+  const intro = document.getElementById('hist-intro');
+  if(intro) intro.textContent = isClima
+    ? '7 días de pronóstico por zona, ordenadas por lluvia máxima. Click en barra para saltar a ese día.'
+    : '17 semanas monitoreadas, ordenadas por frecuencia. Click en barra para saltar a esa semana.';
+
+  const histLegend = document.getElementById('hist-legend');
+  if(histLegend){
+    if(isClima){
+      histLegend.innerHTML =
+        '<div style="display:flex;flex-direction:column;gap:2px">'
+        +'<div style="height:6px;width:200px;border-radius:2px;background:linear-gradient(to right,'
+          +'rgba(58,168,255,0.45) 0%,'
+          +'rgba(62,192,173,0.7) 25%,'
+          +'rgba(228,194,73,0.78) 45%,'
+          +'rgba(255,149,48,0.85) 70%,'
+          +'rgba(224,48,32,0.92) 100%)"></div>'
+        +'<div style="display:flex;justify-content:space-between;width:200px;font-size:9px;color:var(--text-dim)"><span>1</span><span>10</span><span>18</span><span>28</span><span>50+ mm</span></div>'
+        +'</div>';
+    } else {
+      histLegend.innerHTML =
+        '<span><span style="display:inline-block;width:8px;height:8px;background:var(--red);border-radius:1px;vertical-align:middle;margin-right:3px;"></span>Rojo</span>'
+        +'<span><span style="display:inline-block;width:8px;height:8px;background:var(--aleph-yellow);border-radius:1px;vertical-align:middle;margin-right:3px;"></span>Amarillo</span>'
+        +'<span><span style="display:inline-block;width:8px;height:8px;background:rgba(255,255,255,0.08);border:1px solid var(--border);border-radius:1px;vertical-align:middle;margin-right:3px;"></span>Sin alerta</span>';
+    }
+  }
+
+  const dayHeader = document.getElementById('hist-day-header');
+  if(dayHeader){
+    if(isClima){
+      const dayLabels = ['HOY','+1','+2','+3','+4','+5','+6'];
+      dayHeader.innerHTML =
+        '<div style="flex:0 0 100px;font-size:9px;color:var(--text-dim);font-weight:600;letter-spacing:0.05em;text-transform:uppercase">Zona</div>'
+        +'<div style="flex:1;display:flex;gap:1px">'
+        + dayLabels.map(d =>
+          '<div style="flex:1;text-align:center;font-size:9px;color:var(--text-dim);font-weight:600;letter-spacing:0.04em">'+d+'</div>'
+        ).join('')
+        +'</div>'
+        +'<div style="min-width:46px;text-align:right;font-size:9px;color:var(--text-dim);font-weight:600;letter-spacing:0.04em;text-transform:uppercase">Máx</div>';
+      dayHeader.style.display = 'flex';
+    } else {
+      dayHeader.style.display = 'none';
+    }
+  }
 }
 
 function switchPanel(name){
@@ -1680,8 +1730,40 @@ function renderZMList(){
   el.innerHTML = html;
 }
 
+function rainCssColor(mm){
+  const style = rainStyleAleph(mm);
+  if(!style) return null;
+  const m = style.fillColor.match(/rgb\((\d+),(\d+),(\d+)\)/);
+  if(!m) return style.fillColor;
+  return 'rgba('+m[1]+','+m[2]+','+m[3]+','+style.fillOpacity+')';
+}
 function renderHistory(){
   const el = document.getElementById('hist-list');
+  const isClima = (mode === 'clima');
+
+  if(isClima){
+    const ranked = ZONAS
+      .map(z => ({ z, maxMm: Math.max(...((z._climaRain) || [0])) }))
+      .filter(x => x.maxMm > 0.3)
+      .sort((a,b) => b.maxMm - a.maxMm);
+    const html = ranked.map(({z, maxMm}) => {
+      const rains = z._climaRain || [];
+      const bars = SEMANAS.map((_, i) => {
+        const mm = rains[i];
+        const cssColor = rainCssColor(mm);
+        const bg = cssColor || 'rgba(255,255,255,0.06)';
+        const bd = cssColor ? '' : 'border:1px solid rgba(255,255,255,0.10)';
+        const hl = i===wk ? 'outline:1.5px solid rgba(255,255,255,0.45);outline-offset:1px;' : '';
+        const title = ((mm!=null?mm.toFixed(1):'0.0')+' mm · '+fmtD(SEMANAS[i]));
+        return '<div class="hist-bar" style="background:'+bg+';'+bd+';'+hl+'" onclick="event.stopPropagation();jmpW('+i+')" title="'+title+'"></div>';
+      }).join('');
+      return '<div class="hist-row"><div class="hist-name" onclick="clkZ('+z.cve+')">'+z.zm+'</div><div class="hist-bars">'+bars+'</div><div class="hist-count">'+maxMm.toFixed(0)+' mm</div></div>';
+    }).join('');
+    const dryCount = ZONAS.length - ranked.length;
+    el.innerHTML = html + (dryCount > 0 ? '<div style="padding:14px 16px;font-size:11px;color:var(--text-dim);font-style:italic;">+ '+dryCount+' zonas sin lluvia significativa esperada</div>' : '');
+    return;
+  }
+
   const sorted = [...ZONAS].sort((a,b) => b.alertas - a.alertas).filter(z => z.alertas > 0);
   const html = sorted.map(z => {
     const bars = z.semanas.map((v,i) => {
@@ -1693,7 +1775,7 @@ function renderHistory(){
     return '<div class="hist-row"><div class="hist-name" onclick="clkZ('+z.cve+')">'+z.zm+'</div><div class="hist-bars">'+bars+'</div><div class="hist-count">'+z.alertas+'/'+SEMANAS.length+'</div></div>';
   }).join('');
   const neverCount = ZONAS.filter(z => z.alertas === 0).length;
-  el.innerHTML = html + (neverCount > 0 ? '<div style="padding:14px 16px;font-size:11px;color:var(--text-dim);font-style:italic;">+ '+neverCount+' ZMs sin alertas en el periodo</div>' : '');
+  el.innerHTML = html + (neverCount > 0 ? '<div style="padding:14px 16px;font-size:11px;color:var(--text-dim);font-style:italic;">+ '+neverCount+' zonas sin alertas en el periodo</div>' : '');
 }
 
 function renderCorridors(){
