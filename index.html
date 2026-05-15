@@ -215,10 +215,10 @@ html,body{height:100%;width:100%;overflow:hidden;font-family:'Inter',sans-serif;
 .warr:hover{background:rgba(255,255,255,0.1);color:#fff;}
 .warr.disabled{opacity:0.3;cursor:not-allowed;}
 .wlbl{flex:1;text-align:center;font-size:12px;font-weight:500;color:rgba(255,255,255,0.88);}
-.wdots{display:flex;gap:2px;flex-wrap:wrap;}
-.wdot{width:12px;height:11px;border-radius:2px;cursor:pointer;opacity:.55;touch-action:manipulation;}
-.wdot:hover{opacity:.85;}
-.wdot.on{outline:1.5px solid rgba(255,255,255,0.7);outline-offset:1px;opacity:1;}
+.wdots{display:flex;gap:2px;align-items:flex-end;height:30px;}
+.wdot{width:12px;border-radius:2px 2px 1px 1px;cursor:pointer;opacity:.78;touch-action:manipulation;transition:opacity .15s;}
+.wdot:hover{opacity:1;}
+.wdot.on{outline:1.5px solid var(--aleph-yellow);outline-offset:1px;opacity:1;box-shadow:0 0 6px rgba(228,194,73,0.45);}
 
 /* METRICS — hierarchy */
 .metric-primary{
@@ -1119,7 +1119,7 @@ function generateMexicoGrid(){
   }
   return points;
 }
-const GRID_CACHE_KEY = 'climometro_grid_v3';  // bumped: added wind_direction_10m_dominant for particle field
+const GRID_CACHE_KEY = 'climometro_grid_v4';  // bumped: smaller batches so northern Mexico stops disappearing
 function loadCachedGrid(){
   try {
     const raw = localStorage.getItem(GRID_CACHE_KEY);
@@ -1148,9 +1148,13 @@ async function loadGridWeather(onProgress){
     return gridWeatherData;
   }
   const grid = generateMexicoGrid();
-  // Sequential batches with a small gap so Open-Meteo's free tier doesn't 429
-  // us for bursting. 300 pts per call keeps each URL well under 8KB.
-  const BATCH = 500;
+  // Sequential batches. Open-Meteo's hard URL cap is ~8KB; adding
+  // wind_direction_10m_dominant + forecast_days=7 pushes us over the line at
+  // 500 pts (which silently killed the northern batches, leaving Sonora /
+  // Chihuahua / Baja blank). 200 pts keeps each request under ~3.5 KB with
+  // healthy margin, and we now retry once on failure before giving up so
+  // transient 429s don't leave geographic holes either.
+  const BATCH = 200;
   const batches = [];
   for(let i = 0; i < grid.length; i += BATCH) batches.push(grid.slice(i, i + BATCH));
   const fetchBatch = async (pts) => {
@@ -1166,20 +1170,26 @@ async function loadGridWeather(onProgress){
   };
   const run = async () => {
     const out = [];
+    let failed = 0;
     for(let bi = 0; bi < batches.length; bi++){
       if(onProgress) onProgress({ phase:'fetch', current: bi+1, total: batches.length });
-      try {
-        const result = await fetchBatch(batches[bi]);
+      let result = null;
+      for(let attempt = 0; attempt < 2; attempt++){
+        try { result = await fetchBatch(batches[bi]); break; }
+        catch(e){
+          if(attempt === 1) console.warn('Grid batch '+(bi+1)+'/'+batches.length+' failed both attempts:', e.message);
+          else await new Promise(r => setTimeout(r, 600));
+        }
+      }
+      if(result){
         result.forEach((fc, pi) => {
           const p = batches[bi][pi];
           out.push({ lat:p.lat, lng:p.lng, daily: (fc && fc.daily) ? fc.daily : null });
         });
-      } catch(e){
-        console.warn('Grid batch '+(bi+1)+' failed:', e);
-        // Continue with whatever we have — partial data is better than none
-      }
-      if(bi < batches.length - 1) await new Promise(r => setTimeout(r, 250));
+      } else failed++;
+      if(bi < batches.length - 1) await new Promise(r => setTimeout(r, 200));
     }
+    if(failed > 0) console.warn('Grid loaded with '+failed+'/'+batches.length+' batches missing — coverage may have holes.');
     return out;
   };
   gridWeatherInflight = run().then(out => {
@@ -2150,10 +2160,19 @@ function renderAll(){
 
 
   // Week dots
-  const dotsHTML = SEMANAS.map((s,i) => {
-    const mx = Math.max(...ZONAS.map(z => z.semanas[i]));
-    const bg = mx===2?'#e03020':mx===1?'#e4c249':'rgba(255,255,255,0.1)';
-    return '<div class="wdot'+(i===wk?' on':'')+'" style="background:'+bg+'" onclick="jmpW('+i+')" title="'+fmtD(s)+'"></div>';
+  // Sparkline: each week's bar height = count of ZMs in alert that week.
+  // Colour shifts red when there's any level-2 ZM, yellow when only level-1.
+  // We normalise heights against the busiest week in the series so the shape
+  // is comparable across the timeline.
+  const counts = SEMANAS.map((_, i) => ZONAS.filter(z => z.semanas[i] > 0).length);
+  const reds   = SEMANAS.map((_, i) => ZONAS.some(z => z.semanas[i] === 2));
+  const peak = Math.max(1, ...counts);
+  const dotsHTML = SEMANAS.map((s, i) => {
+    const c = counts[i];
+    const h = c === 0 ? 4 : Math.max(6, Math.round((c / peak) * 26));
+    const bg = c === 0 ? 'rgba(255,255,255,0.10)' : (reds[i] ? '#e03020' : '#e4c249');
+    const title = fmtD(s) + ' · ' + c + (c === 1 ? ' zona en alerta' : ' zonas en alerta');
+    return '<div class="wdot'+(i===wk?' on':'')+'" style="height:'+h+'px;background:'+bg+'" onclick="jmpW('+i+')" title="'+title+'"></div>';
   }).join('');
   document.getElementById('dots-r').innerHTML = dotsHTML;
 
@@ -2503,4 +2522,4 @@ try {
 }
 </script>
 </body>
-</html><!-- Build: Fri May 15 12:00:00 CST 2026 · Mapbox light-v11 basemap -->
+</html><!-- Build: Fri May 15 13:30:00 CST 2026 · weekly sparkline + grid coverage fix -->
