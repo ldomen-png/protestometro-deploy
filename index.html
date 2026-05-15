@@ -477,6 +477,74 @@ canvas.wind-raster{
   position:absolute;left:0;top:0;pointer-events:none;z-index:2;
 }
 
+/* ── CLIMA LOADER (overlay while grid fetches) ───────────────────────── */
+#clima-loader{
+  position:absolute;inset:0;display:none;z-index:1500;
+  align-items:center;justify-content:center;
+  background:rgba(244,244,244,0.55);
+  -webkit-backdrop-filter:blur(8px) saturate(120%);
+  backdrop-filter:blur(8px) saturate(120%);
+  pointer-events:auto;
+}
+#clima-loader.on{display:flex;}
+#clima-loader.fading{opacity:0;transition:opacity .5s ease-out;}
+.cloader-card{
+  width:340px;max-width:90vw;padding:24px 28px 22px;
+  background:rgba(15,15,17,0.92);
+  -webkit-backdrop-filter:blur(24px) saturate(180%);
+  backdrop-filter:blur(24px) saturate(180%);
+  border:1px solid var(--border-strong);border-radius:10px;
+  box-shadow:0 16px 48px rgba(0,0,0,0.45);
+  font-family:'Inter',sans-serif;color:#fff;text-align:center;
+}
+.cloader-pulse{
+  width:36px;height:36px;margin:0 auto 14px;border-radius:50%;
+  background:radial-gradient(circle,var(--aleph-yellow) 0%,rgba(228,194,73,0.0) 70%);
+  position:relative;
+}
+.cloader-pulse::before,.cloader-pulse::after{
+  content:'';position:absolute;inset:0;border-radius:50%;
+  border:1.5px solid var(--aleph-yellow);
+  animation:cloader-ring 1.8s ease-out infinite;
+}
+.cloader-pulse::after{animation-delay:0.9s;}
+@keyframes cloader-ring{
+  0%{transform:scale(0.4);opacity:0.85;}
+  100%{transform:scale(2.2);opacity:0;}
+}
+.cloader-title{font-size:11px;font-weight:700;letter-spacing:0.22em;color:var(--aleph-yellow);margin-bottom:4px;}
+.cloader-sub{font-size:10px;color:rgba(255,255,255,0.55);letter-spacing:0.04em;margin-bottom:18px;}
+.cloader-phase{
+  font-size:12px;font-weight:500;color:#fff;letter-spacing:0.03em;
+  min-height:18px;margin-bottom:10px;
+  transition:opacity .25s;
+}
+.cloader-track{
+  width:100%;height:3px;border-radius:2px;
+  background:rgba(255,255,255,0.08);overflow:hidden;
+}
+.cloader-fill{
+  width:0%;height:100%;background:linear-gradient(90deg,var(--aleph-yellow),#fff7d0);
+  border-radius:2px;transition:width .35s ease-out;
+  box-shadow:0 0 8px rgba(228,194,73,0.4);
+}
+.cloader-meta{
+  display:flex;justify-content:center;gap:6px;
+  margin-top:8px;font-size:10px;color:rgba(255,255,255,0.55);
+  font-variant-numeric:tabular-nums;letter-spacing:0.04em;
+}
+.cloader-sep{opacity:0.4;}
+.cloader-fact{
+  margin-top:18px;padding-top:14px;border-top:1px solid var(--border);
+  font-size:10.5px;color:rgba(255,255,255,0.65);font-style:italic;
+  line-height:1.5;min-height:32px;
+  transition:opacity .35s ease-in-out;
+}
+.cloader-fact.swap{opacity:0;}
+@media(max-width:760px){
+  .cloader-card{width:92vw;padding:20px 18px;}
+}
+
 /* CLIMA LEGEND (only visible in clima mode) */
 #clima-legend{
   display:none;position:absolute;bottom:100px;right:14px;
@@ -834,6 +902,20 @@ canvas.wind-raster{
     <div id="mapwrap">
       <div id="map"></div>
       <div id="map-overlay"></div>
+      <!-- Clima loader (only shown while clima data is loading) -->
+      <div id="clima-loader" aria-hidden="true">
+        <div class="cloader-card">
+          <div class="cloader-pulse"></div>
+          <div class="cloader-title">CLÍMOMETRO</div>
+          <div class="cloader-sub">Pronóstico nacional · 7 días · Open-Meteo</div>
+          <div class="cloader-phase" id="cloader-phase">Conectando…</div>
+          <div class="cloader-track"><div class="cloader-fill" id="cloader-fill"></div></div>
+          <div class="cloader-meta">
+            <span id="cloader-pct">0%</span><span class="cloader-sep">·</span><span id="cloader-eta">~25 s</span>
+          </div>
+          <div class="cloader-fact" id="cloader-fact">&nbsp;</div>
+        </div>
+      </div>
       <!-- Live news ticker (cross-feed: protestas + clima) -->
       <div id="news-ticker">
         <div class="ticker-label"><span class="ticker-dot"></span>EN VIVO</div>
@@ -1274,6 +1356,87 @@ function updateClimaFreshness(){
   const ago = mins < 1 ? 'hace segundos' : (mins < 60 ? 'hace '+mins+' min' : 'hace '+Math.floor(mins/60)+' h');
   el.textContent = 'Open-Meteo · actualizado '+ago;
 }
+
+// ── CLIMA LOADER (entertain + progress while grid fetches) ──────────────
+// Acknowledge → Inform → Estimate → Engage → Brand. The fact rotation makes
+// the 25-30 s wait feel like a methodology pitch rather than dead air.
+const CLIMA_FACTS = [
+  '13 lotes secuenciales a 800 ms · evita gatillar rate limits del free tier de Open-Meteo.',
+  '2,535 celdas a 0.5° de resolución · de Tijuana al norte a Tapachula al sur.',
+  'Modelo: ensemble ECMWF + GFS · actualizado cada hora por Open-Meteo.',
+  'Lluvia: precipitación acumulada diaria · Viento: velocidad máxima a 10 m + dirección dominante.',
+  'Interpolación bilineal en GPU · resampling lineal nativo de Mapbox GL JS.',
+  'Hasta 1,400 partículas advectadas por el campo u/v en tiempo real.',
+  'Aleph cruza este feed con el monitoreo semanal de protestas · una sola vista de riesgo operativo.',
+  '75 zonas metropolitanas · 418 municipios · 90 millones de habitantes en cobertura.',
+  '30 corredores federales monitoreados — 95D, 150D, 57D, 200, AN…'
+];
+const climaLoader = {
+  startedAt: 0,
+  factIdx: 0,
+  factTimer: null,
+  totalBatches: 13,
+  show(){
+    const el = document.getElementById('clima-loader');
+    if(!el) return;
+    this.startedAt = Date.now();
+    this.factIdx = Math.floor(Math.random() * CLIMA_FACTS.length);
+    el.classList.add('on');
+    el.classList.remove('fading');
+    el.setAttribute('aria-hidden', 'false');
+    this.setPhase('Conectando con Open-Meteo');
+    this.setProgress(0, this.totalBatches);
+    this._renderFact();
+    if(this.factTimer) clearInterval(this.factTimer);
+    this.factTimer = setInterval(() => this._cycleFact(), 4500);
+  },
+  hide(){
+    const el = document.getElementById('clima-loader');
+    if(!el) return;
+    if(this.factTimer){ clearInterval(this.factTimer); this.factTimer = null; }
+    // Brief "done" state before fading so the user reads completion
+    this.setPhase('Listo');
+    this.setProgress(1, 1);
+    el.classList.add('fading');
+    setTimeout(() => {
+      el.classList.remove('on', 'fading');
+      el.setAttribute('aria-hidden', 'true');
+    }, 480);
+  },
+  setPhase(text){
+    const el = document.getElementById('cloader-phase');
+    if(el) el.textContent = text;
+  },
+  setProgress(current, total){
+    const pct = Math.max(0, Math.min(1, total > 0 ? current / total : 0));
+    const fill = document.getElementById('cloader-fill');
+    const pctEl = document.getElementById('cloader-pct');
+    const etaEl = document.getElementById('cloader-eta');
+    if(fill) fill.style.width = (pct * 100).toFixed(0) + '%';
+    if(pctEl) pctEl.textContent = Math.round(pct * 100) + '%';
+    if(etaEl){
+      if(pct <= 0){ etaEl.textContent = '~25 s'; return; }
+      const elapsed = (Date.now() - this.startedAt) / 1000;
+      const totalEst = elapsed / pct;
+      const remaining = Math.max(1, Math.round(totalEst - elapsed));
+      etaEl.textContent = remaining < 60 ? '~'+remaining+' s' : '~'+Math.ceil(remaining/60)+' min';
+    }
+  },
+  _renderFact(){
+    const el = document.getElementById('cloader-fact');
+    if(el) el.textContent = CLIMA_FACTS[this.factIdx % CLIMA_FACTS.length];
+  },
+  _cycleFact(){
+    const el = document.getElementById('cloader-fact');
+    if(!el) return;
+    el.classList.add('swap');
+    setTimeout(() => {
+      this.factIdx = (this.factIdx + 1) % CLIMA_FACTS.length;
+      this._renderFact();
+      el.classList.remove('swap');
+    }, 350);
+  }
+};
 function toggleWindLayer(){
   windLayerEnabled = !windLayerEnabled;
   const btn = document.getElementById('wind-toggle');
@@ -1493,16 +1656,30 @@ async function setMode(newMode){
     document.getElementById('hl-text').innerHTML = '<div class="hl-secondary">Cargando pronóstico…</div>';
     const dbg = (msg) => { const el = document.getElementById('clima-debug'); if(el) el.textContent = msg; };
     dbg('Cargando zonas…');
+    climaLoader.show();
+    climaLoader.setPhase('Pronóstico de zonas metropolitanas');
     // Sequence the fetches to avoid Open-Meteo rate limits when we hit it with
     // many parallel batches.
     const data = await loadWeather();
     if(!data){
       document.getElementById('hl-text').innerHTML = '<div class="hl-secondary" style="color:var(--red)">No se pudo cargar el pronóstico. Reintenta.</div>';
       dbg('Error: no se pudo cargar zonas');
+      climaLoader.setPhase('Error de red — reintenta');
+      setTimeout(() => climaLoader.hide(), 1500);
       return;
     }
     dbg('Zonas OK · cargando grid…');
-    const grid = await loadGridWeather();
+    climaLoader.setPhase('Cargando malla nacional · 13 lotes');
+    const grid = await loadGridWeather((info) => {
+      if(info.phase === 'cache'){
+        climaLoader.setPhase('Pronóstico en caché · cargando');
+        climaLoader.setProgress(1, 1);
+      } else if(info.phase === 'fetch'){
+        climaLoader.totalBatches = info.total;
+        climaLoader.setPhase('Cargando lote '+info.current+' de '+info.total);
+        climaLoader.setProgress(info.current, info.total);
+      }
+    });
     if(!grid){
       dbg('Error: fetch grid falló');
     } else {
@@ -1561,6 +1738,12 @@ async function setMode(newMode){
   if(map) refreshMap();
   renderAll();
   if(sel) showDet(sel);
+  // Last brushstroke before fading out — only on entry to clima mode.
+  if(mode === 'clima'){
+    climaLoader.setPhase('Renderizando malla y partículas');
+    climaLoader.setProgress(1, 1);
+    setTimeout(() => climaLoader.hide(), 350);
+  }
 }
 
 // ── LIVE TICKER (Bloomberg-style cross-feed) ────────────────────────────
@@ -2542,4 +2725,4 @@ try {
 }
 </script>
 </body>
-</html><!-- Build: Fri May 15 14:00:00 CST 2026 · grid: throttle + retry + coverage check -->
+</html><!-- Build: Fri May 15 15:00:00 CST 2026 · clima loader overlay with progress + facts -->
