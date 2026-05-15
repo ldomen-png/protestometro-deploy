@@ -464,13 +464,16 @@ html,body{height:100%;width:100%;overflow:hidden;font-family:'Inter',sans-serif;
 }
 .corr-label.affected{border-color:rgba(224,48,32,0.7);color:#ff8070;}
 
-/* Smooth the grid-heatmap cells into Windy-style soft areas instead of
-   sharp 0.5° squares. The blur is applied to the entire pane, so the
-   canvas-rendered rectangles merge visually without changing the data. */
+/* The rain raster already bilinearly interpolates between 0.5° cells via the
+   browser drawImage path, so a light blur on top is enough to erase the last
+   pixel-grid traces and give a Windy/Ventusky-style continuous wash. */
 .leaflet-gridHeatmap-pane{
-  filter:blur(9px);
-  -webkit-filter:blur(9px);
+  filter:blur(3px);
+  -webkit-filter:blur(3px);
   will-change:filter;
+}
+canvas.rain-raster,canvas.wind-raster{
+  position:absolute;left:0;top:0;pointer-events:none;
 }
 
 /* CLIMA LEGEND (only visible in clima mode) */
@@ -498,6 +501,17 @@ html,body{height:100%;width:100%;overflow:hidden;font-family:'Inter',sans-serif;
     rgba(224,48,32,0.90) 100%);
 }
 .cl-marks{display:flex;justify-content:space-between;font-size:9px;color:rgba(255,255,255,0.5);width:170px;margin-top:2px;}
+.cl-wind{display:flex;align-items:center;gap:6px;flex-wrap:wrap;width:170px;}
+.cl-wind-key{font-size:9px;color:rgba(255,255,255,0.6);display:inline-flex;align-items:center;gap:3px;}
+.cl-wind-key i{display:inline-block;width:10px;height:2px;border-radius:1px;}
+.cl-toggle{
+  background:transparent;border:1px solid rgba(255,255,255,0.18);
+  color:rgba(255,255,255,0.6);font-family:'Inter',sans-serif;font-size:9px;font-weight:600;
+  letter-spacing:0.08em;padding:2px 7px;border-radius:3px;cursor:pointer;
+}
+.cl-toggle.on{background:var(--aleph-yellow);color:#0a0a0a;border-color:var(--aleph-yellow);}
+.cl-fresh{margin-top:7px;font-size:9px;color:rgba(255,255,255,0.55);font-weight:500;letter-spacing:0.04em;display:flex;align-items:center;gap:5px;}
+.cl-fresh::before{content:'';width:5px;height:5px;border-radius:50%;background:#88c4a8;box-shadow:0 0 6px rgba(136,196,168,0.6);}
 @media(max-width:760px){
   #clima-legend{bottom:calc(56px + env(safe-area-inset-bottom, 0px) + 90px);right:8px;}
 }
@@ -844,7 +858,18 @@ html,body{height:100%;width:100%;overflow:hidden;font-family:'Inter',sans-serif;
             <div class="cl-marks"><span>1</span><span>10</span><span>18</span><span>28</span><span>50+ mm</span></div>
           </div>
         </div>
-        <div id="clima-debug" style="margin-top:6px;font-size:9px;color:rgba(255,255,255,0.55);font-family:monospace">—</div>
+        <div class="cl-row" style="margin-top:7px;align-items:center;">
+          <span class="cl-label">Viento</span>
+          <div class="cl-wind">
+            <button id="wind-toggle" class="cl-toggle on" type="button">ON</button>
+            <span class="cl-wind-key"><i style="background:#fff"></i>&lt;20</span>
+            <span class="cl-wind-key"><i style="background:#e4c249"></i>20–40</span>
+            <span class="cl-wind-key"><i style="background:#ff9530"></i>40–60</span>
+            <span class="cl-wind-key"><i style="background:#e03020"></i>60+ km/h</span>
+          </div>
+        </div>
+        <div id="clima-fresh" class="cl-fresh">—</div>
+        <div id="clima-debug" style="margin-top:4px;font-size:9px;color:rgba(255,255,255,0.40);font-family:monospace">—</div>
       </div>
       <!-- Mobile floating headline -->
       <div id="float-headline">
@@ -1050,6 +1075,10 @@ let corridorWeatherData = null;
 let corridorWeatherInflight = null;
 let gridWeatherData = null;
 let gridWeatherInflight = null;
+let gridWeatherFetchedAt = null;
+let rainRasterLayer = null;
+let windParticleLayer = null;
+let windLayerEnabled = true;
 let savedProtestasSemanas = null;
 let savedProtestasDates = null;
 const CLIMA_THRESHOLDS = { yellowRain:5, redRain:30, yellowWind:40, redWind:60 };
@@ -1095,7 +1124,7 @@ function generateMexicoGrid(){
   }
   return points;
 }
-const GRID_CACHE_KEY = 'climometro_grid_v2';  // bumped: 0.75° → 0.5° resolution
+const GRID_CACHE_KEY = 'climometro_grid_v3';  // bumped: added wind_direction_10m_dominant for particle field
 function loadCachedGrid(){
   try {
     const raw = localStorage.getItem(GRID_CACHE_KEY);
@@ -1103,13 +1132,14 @@ function loadCachedGrid(){
     const obj = JSON.parse(raw);
     const today = new Date().toISOString().slice(0,10);
     if(obj.date !== today || !Array.isArray(obj.cells)) return null;
+    if(obj.fetchedAt) gridWeatherFetchedAt = obj.fetchedAt;
     return obj.cells;
   } catch(e){ return null; }
 }
 function saveGridCache(cells){
   try {
     const today = new Date().toISOString().slice(0,10);
-    localStorage.setItem(GRID_CACHE_KEY, JSON.stringify({ date: today, cells }));
+    localStorage.setItem(GRID_CACHE_KEY, JSON.stringify({ date: today, fetchedAt: Date.now(), cells }));
   } catch(e){ /* quota / disabled — ignore */ }
 }
 async function loadGridWeather(onProgress){
@@ -1132,7 +1162,7 @@ async function loadGridWeather(onProgress){
     const lats = pts.map(p => p.lat).join(',');
     const lngs = pts.map(p => p.lng).join(',');
     const url = 'https://api.open-meteo.com/v1/forecast?latitude='+lats+'&longitude='+lngs
-      +'&daily=precipitation_sum,wind_speed_10m_max'
+      +'&daily=precipitation_sum,wind_speed_10m_max,wind_direction_10m_dominant'
       +'&timezone=America%2FMexico_City&forecast_days=7';
     const r = await fetch(url);
     if(!r.ok) throw new Error('Open-Meteo '+r.status+' for '+pts.length+' pts');
@@ -1159,6 +1189,7 @@ async function loadGridWeather(onProgress){
   };
   gridWeatherInflight = run().then(out => {
     gridWeatherData = out;
+    gridWeatherFetchedAt = Date.now();
     gridWeatherInflight = null;
     if(out.length > 0) saveGridCache(out);
     console.log('Grid weather loaded:', out.length, 'cells across', batches.length, 'sequential batches');
@@ -1218,6 +1249,239 @@ function climaIntensityAt(rainMm, windKmh){
   const windNorm = Math.min(1, (windKmh||0) / CLIMA_SCALE.windNorm);
   return { rainNorm, windNorm, intensity: Math.max(rainNorm, windNorm), useWind: windNorm > rainNorm && (windKmh||0) > 30 };
 }
+function updateClimaFreshness(){
+  const el = document.getElementById('clima-fresh');
+  if(!el) return;
+  if(!gridWeatherFetchedAt){ el.textContent = 'Pronóstico Open-Meteo · cargando…'; return; }
+  const mins = Math.max(0, Math.floor((Date.now() - gridWeatherFetchedAt) / 60000));
+  const ago = mins < 1 ? 'hace segundos' : (mins < 60 ? 'hace '+mins+' min' : 'hace '+Math.floor(mins/60)+' h');
+  el.textContent = 'Open-Meteo · actualizado '+ago;
+}
+function toggleWindLayer(){
+  windLayerEnabled = !windLayerEnabled;
+  const btn = document.getElementById('wind-toggle');
+  if(btn){ btn.classList.toggle('on', windLayerEnabled); btn.textContent = windLayerEnabled ? 'ON' : 'OFF'; }
+  if(!map || !windParticleLayer) return;
+  if(windLayerEnabled){
+    if(!map.hasLayer(windParticleLayer)) windParticleLayer.addTo(map);
+    if(gridWeatherData){ windParticleLayer.setData(gridWeatherData); windParticleLayer.setDayIdx(wk); }
+  } else if(map.hasLayer(windParticleLayer)){
+    map.removeLayer(windParticleLayer);
+  }
+}
+
+// ── SMOOTH RAIN RASTER LAYER ────────────────────────────────────────────
+// One canvas covering the viewport. Every redraw, we paint each cell as a
+// 1-pixel block in a tiny off-screen canvas, then drawImage onto the main
+// canvas with smoothing on — the browser does bilinear interpolation for
+// free. A light CSS blur on the pane erases the last residue of the 0.5°
+// grid. Net effect: continuous Ventusky-style wash with ~one drawImage call
+// per pan/zoom/day-change instead of ~2.4k L.rectangles.
+const RainRasterLayer = L.Layer.extend({
+  initialize(){ this._cells = null; this._dayIdx = 0; },
+  onAdd(map){
+    this._map = map;
+    this._canvas = L.DomUtil.create('canvas', 'rain-raster');
+    map.getPane('gridHeatmap').appendChild(this._canvas);
+    map.on('moveend zoomend viewreset resize', this._reset, this);
+    this._reset();
+  },
+  onRemove(map){
+    map.off('moveend zoomend viewreset resize', this._reset, this);
+    if(this._canvas) L.DomUtil.remove(this._canvas);
+    this._canvas = null;
+  },
+  setData(cells){ this._cells = cells; if(this._map) this._draw(); },
+  setDayIdx(d){ this._dayIdx = d|0; if(this._map) this._draw(); },
+  _reset(){
+    if(!this._map || !this._canvas) return;
+    const size = this._map.getSize();
+    const topLeft = this._map.containerPointToLayerPoint([0,0]);
+    L.DomUtil.setPosition(this._canvas, topLeft);
+    this._canvas.width = size.x;
+    this._canvas.height = size.y;
+    this._canvas.style.width = size.x+'px';
+    this._canvas.style.height = size.y+'px';
+    this._draw();
+  },
+  _draw(){
+    if(!this._canvas || !this._cells) return;
+    const ctx = this._canvas.getContext('2d');
+    ctx.clearRect(0,0,this._canvas.width,this._canvas.height);
+    const minLat = GRID_BOUNDS.minLat, maxLat = GRID_BOUNDS.maxLat;
+    const minLng = GRID_BOUNDS.minLng, maxLng = GRID_BOUNDS.maxLng;
+    const cols = Math.round((maxLng - minLng) / GRID_STEP) + 1;
+    const rows = Math.round((maxLat - minLat) / GRID_STEP) + 1;
+    if(!this._off || this._off.width !== cols || this._off.height !== rows){
+      this._off = document.createElement('canvas');
+      this._off.width = cols; this._off.height = rows;
+    }
+    const octx = this._off.getContext('2d');
+    const img = octx.createImageData(cols, rows);
+    const day = this._dayIdx;
+    this._cells.forEach(c => {
+      if(!c.daily || !c.daily.precipitation_sum) return;
+      const mm = c.daily.precipitation_sum[day];
+      const style = rainStyleAleph(mm);
+      if(!style) return;
+      const col = Math.round((c.lng - minLng) / GRID_STEP);
+      const row = Math.round((maxLat - c.lat) / GRID_STEP);
+      if(col<0||col>=cols||row<0||row>=rows) return;
+      const idx = (row * cols + col) * 4;
+      const m = style.fillColor.match(/rgb\((\d+),(\d+),(\d+)\)/);
+      if(!m) return;
+      img.data[idx]   = +m[1];
+      img.data[idx+1] = +m[2];
+      img.data[idx+2] = +m[3];
+      img.data[idx+3] = Math.round(style.fillOpacity * 255);
+    });
+    octx.putImageData(img, 0, 0);
+    const half = GRID_STEP / 2;
+    const nw = this._map.latLngToContainerPoint([maxLat + half, minLng - half]);
+    const se = this._map.latLngToContainerPoint([minLat - half, maxLng + half]);
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(this._off, nw.x, nw.y, se.x - nw.x, se.y - nw.y);
+  }
+});
+
+// ── WIND PARTICLE LAYER ─────────────────────────────────────────────────
+// Particles seeded across Mexico, advected by a bilinearly-sampled wind
+// field. Each frame: fade the canvas (trails), step each particle one
+// frame forward along its local wind vector, stroke a segment from previous
+// to new container point. Speed colour = white → yellow → orange → red.
+// Animation pauses while panning/zooming so positions don't smear.
+const WindParticleLayer = L.Layer.extend({
+  initialize(){
+    this._cells = null;
+    this._dayIdx = 0;
+    this._rafId = null;
+    this._particles = [];
+    this._field = null;
+    this._paused = false;
+    this._count = (window.innerWidth > 760) ? 1400 : 500;
+  },
+  onAdd(map){
+    this._map = map;
+    this._canvas = L.DomUtil.create('canvas', 'wind-raster');
+    map.getPane('windParticles').appendChild(this._canvas);
+    map.on('moveend zoomend viewreset resize', this._reset, this);
+    map.on('movestart zoomstart', this._stop, this);
+    map.on('moveend zoomend', this._start, this);
+    this._reset();
+    this._start();
+  },
+  onRemove(map){
+    this._stop();
+    map.off('moveend zoomend viewreset resize', this._reset, this);
+    map.off('movestart zoomstart', this._stop, this);
+    map.off('moveend zoomend', this._start, this);
+    if(this._canvas) L.DomUtil.remove(this._canvas);
+    this._canvas = null;
+  },
+  setData(cells){ this._cells = cells; this._buildField(); this._spawn(); },
+  setDayIdx(d){ this._dayIdx = d|0; this._buildField(); this._spawn(); },
+  _buildField(){
+    if(!this._cells) return;
+    const minLat = GRID_BOUNDS.minLat, maxLat = GRID_BOUNDS.maxLat;
+    const minLng = GRID_BOUNDS.minLng, maxLng = GRID_BOUNDS.maxLng;
+    const cols = Math.round((maxLng - minLng) / GRID_STEP) + 1;
+    const rows = Math.round((maxLat - minLat) / GRID_STEP) + 1;
+    const u = new Float32Array(cols * rows);
+    const v = new Float32Array(cols * rows);
+    const s = new Float32Array(cols * rows);
+    const day = this._dayIdx;
+    this._cells.forEach(c => {
+      if(!c.daily) return;
+      const sp = c.daily.wind_speed_10m_max ? (c.daily.wind_speed_10m_max[day]||0) : 0;
+      const dr = c.daily.wind_direction_10m_dominant ? (c.daily.wind_direction_10m_dominant[day]||0) : 0;
+      const rad = dr * Math.PI / 180;
+      // Meteorological convention: direction is where wind comes FROM. Vector
+      // pointing where the air is going to is the negative of that.
+      const col = Math.round((c.lng - minLng) / GRID_STEP);
+      const row = Math.round((maxLat - c.lat) / GRID_STEP);
+      if(col<0||col>=cols||row<0||row>=rows) return;
+      const i = row * cols + col;
+      u[i] = -sp * Math.sin(rad);  // east-west component (deg lng/h proxy)
+      v[i] =  sp * Math.cos(rad);  // north-south component (deg lat/h proxy, +north)
+      s[i] = sp;
+    });
+    this._field = { u, v, s, cols, rows, minLat, maxLat, minLng, maxLng };
+  },
+  _sample(lat, lng){
+    const f = this._field;
+    if(!f) return null;
+    const fx = (lng - f.minLng) / GRID_STEP;
+    const fy = (f.maxLat - lat) / GRID_STEP;
+    const x0 = Math.floor(fx), y0 = Math.floor(fy);
+    if(x0 < 0 || x0 >= f.cols-1 || y0 < 0 || y0 >= f.rows-1) return null;
+    const dx = fx - x0, dy = fy - y0;
+    const i00 = y0*f.cols + x0, i10 = y0*f.cols + x0+1;
+    const i01 = (y0+1)*f.cols + x0, i11 = (y0+1)*f.cols + x0+1;
+    const u = (f.u[i00]*(1-dx) + f.u[i10]*dx)*(1-dy) + (f.u[i01]*(1-dx) + f.u[i11]*dx)*dy;
+    const v = (f.v[i00]*(1-dx) + f.v[i10]*dx)*(1-dy) + (f.v[i01]*(1-dx) + f.v[i11]*dx)*dy;
+    const s = (f.s[i00]*(1-dx) + f.s[i10]*dx)*(1-dy) + (f.s[i01]*(1-dx) + f.s[i11]*dx)*dy;
+    return { u, v, s };
+  },
+  _spawn(){
+    this._particles = [];
+    for(let i = 0; i < this._count; i++) this._particles.push(this._newP(true));
+  },
+  _newP(initialPhase){
+    const f = this._field;
+    const lat = f ? (f.minLat + Math.random() * (f.maxLat - f.minLat)) : 23;
+    const lng = f ? (f.minLng + Math.random() * (f.maxLng - f.minLng)) : -102;
+    return { lat, lng, age: initialPhase ? Math.floor(Math.random()*100) : 0, maxAge: 70 + Math.floor(Math.random()*70) };
+  },
+  _reset(){
+    if(!this._map || !this._canvas) return;
+    const size = this._map.getSize();
+    const topLeft = this._map.containerPointToLayerPoint([0,0]);
+    L.DomUtil.setPosition(this._canvas, topLeft);
+    this._canvas.width = size.x;
+    this._canvas.height = size.y;
+    this._canvas.style.width = size.x+'px';
+    this._canvas.style.height = size.y+'px';
+  },
+  _stop(){ this._paused = true; if(this._rafId){ cancelAnimationFrame(this._rafId); this._rafId = null; } },
+  _start(){ this._paused = false; if(!this._rafId) this._animate(); },
+  _animate(){
+    this._rafId = requestAnimationFrame(() => this._animate());
+    if(!this._canvas || !this._field || this._paused) return;
+    const ctx = this._canvas.getContext('2d');
+    // Trail fade — keep 96% of previous frame's alpha. Lower → shorter trails.
+    ctx.globalCompositeOperation = 'destination-in';
+    ctx.fillStyle = 'rgba(0,0,0,0.94)';
+    ctx.fillRect(0,0,this._canvas.width,this._canvas.height);
+    ctx.globalCompositeOperation = 'source-over';
+    const STEP = 0.0006; // degrees per (km/h * frame). Tuned by eye for ~6 zoom.
+    const ps = this._particles;
+    for(let i = 0; i < ps.length; i++){
+      const p = ps[i];
+      p.age++;
+      if(p.age > p.maxAge){ ps[i] = this._newP(false); continue; }
+      const samp = this._sample(p.lat, p.lng);
+      if(!samp || samp.s < 0.5){ ps[i] = this._newP(false); continue; }
+      const p0 = this._map.latLngToContainerPoint([p.lat, p.lng]);
+      const cosLat = Math.cos(p.lat * Math.PI / 180) || 1;
+      p.lat += samp.v * STEP;
+      p.lng += samp.u * STEP / cosLat;
+      const p1 = this._map.latLngToContainerPoint([p.lat, p.lng]);
+      const sp = samp.s;
+      let color;
+      if(sp < 20)      color = 'rgba(255,255,255,0.55)';
+      else if(sp < 40) color = 'rgba(228,194,73,0.75)';
+      else if(sp < 60) color = 'rgba(255,149,48,0.88)';
+      else             color = 'rgba(224,48,32,0.95)';
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1.1;
+      ctx.beginPath();
+      ctx.moveTo(p0.x, p0.y);
+      ctx.lineTo(p1.x, p1.y);
+      ctx.stroke();
+    }
+  }
+});
 async function setMode(newMode){
   if(mode === newMode) return;
   document.querySelectorAll('#mode-toggle button').forEach(b => b.classList.toggle('on', b.dataset.mode === newMode));
@@ -1248,6 +1512,8 @@ async function setMode(newMode){
       const sample = grid.filter(c => c.daily && c.daily.precipitation_sum).slice(0, 5).map(c => (c.daily.precipitation_sum[0]||0).toFixed(1));
       dbg(grid.length+' celdas · muestra mm día 0: '+sample.join(', '));
     }
+    if(map && rainRasterLayer && !map.hasLayer(rainRasterLayer)) rainRasterLayer.addTo(map);
+    if(map && windLayerEnabled && windParticleLayer && !map.hasLayer(windParticleLayer)) windParticleLayer.addTo(map);
     ZONAS.forEach((z, i) => {
       const fc = data[i];
       if(!fc || !fc.daily){ z.semanas = [0,0,0,0,0,0,0]; return; }
@@ -1267,6 +1533,8 @@ async function setMode(newMode){
   } else {
     mode = 'protestas';
     if(brand) brand.textContent = 'Protestómetro';
+    if(map && rainRasterLayer && map.hasLayer(rainRasterLayer)) map.removeLayer(rainRasterLayer);
+    if(map && windParticleLayer && map.hasLayer(windParticleLayer)) map.removeLayer(windParticleLayer);
     if(savedProtestasSemanas){
       ZONAS.forEach((z, i) => { z.semanas = savedProtestasSemanas[i]; delete z._climaRain; delete z._climaWind; });
       SEMANAS.length = 0;
@@ -1500,6 +1768,13 @@ function switchPanel(name){
 document.querySelectorAll('#mode-toggle button').forEach(btn => {
   btn.addEventListener('click', () => setMode(btn.dataset.mode));
 });
+
+// Wind layer toggle (only relevant in clima mode — button lives inside #clima-legend)
+const windBtn = document.getElementById('wind-toggle');
+if(windBtn) windBtn.addEventListener('click', toggleWindLayer);
+
+// Refresh the "actualizado hace X" line every minute while clima is open
+setInterval(() => { if(mode === 'clima') updateClimaFreshness(); }, 60000);
 
 // Rail icons — both touchend and click with guard against double-fire
 document.querySelectorAll('.rail-icon').forEach(el => {
@@ -1748,28 +2023,22 @@ function refreshHex(){
   }
 }
 function refreshHexClima(){
-  // Gridded rain heatmap (Windy-style) + small ZM markers on top.
-  // hexLayer is repurposed to hold the rectangular grid cells.
-  const half = GRID_STEP / 2;
-  let drawn = 0, skipped = 0;
+  // Smooth canvas raster (RainRasterLayer) instead of ~2.4k L.rectangles.
+  // Wind particles (WindParticleLayer) overlay the rain. Both layers stay
+  // mounted in clima mode and only swap their day-index when wk changes.
   if(gridWeatherData){
-    gridWeatherData.forEach(cell => {
-      if(!cell.daily || !cell.daily.precipitation_sum){ skipped++; return; }
-      const mm = cell.daily.precipitation_sum[wk];
-      const style = rainStyleAleph(mm);
-      if(!style){ skipped++; return; }
-      const bounds = [[cell.lat - half, cell.lng - half], [cell.lat + half, cell.lng + half]];
-      L.rectangle(bounds, {
-        stroke:false, weight:0, color:'transparent',
-        fillColor: style.fillColor, fillOpacity: style.fillOpacity,
-        interactive:false, renderer: window._gridRenderer
-      }).addTo(hexLayer);
-      drawn++;
-    });
-    console.log('Heatmap day '+wk+': drew '+drawn+' cells, skipped '+skipped+' (dry / no data)');
+    if(rainRasterLayer){
+      rainRasterLayer.setData(gridWeatherData);
+      rainRasterLayer.setDayIdx(wk);
+    }
+    if(windParticleLayer){
+      windParticleLayer.setData(gridWeatherData);
+      windParticleLayer.setDayIdx(wk);
+    }
   } else {
     console.warn('refreshHexClima: gridWeatherData is null — fetch likely failed');
   }
+  updateClimaFreshness();
   // ZM markers — small white dots that always sit above the heatmap and stay clickable.
   const zoom = map.getZoom();
   ZONAS.forEach(z => {
@@ -2070,16 +2339,21 @@ try {
 
   L.control.zoom({position: 'bottomright'}).addTo(map);
 
-  // Custom panes for clima mode: grid heatmap (bottom) + corridor outlines (above).
-  // Canvas renderer is much cheaper than SVG for ~1k rectangles and avoids the
-  // "pane has no renderer" SVG quirk that silently drops paths into the void.
+  // Custom panes for clima mode (bottom → top):
+  //   gridHeatmap  410  rain raster (smooth bilinear canvas, blurred)
+  //   windParticles 420 animated wind streamlines
+  //   climaCorridor 450 corridor outlines on top of weather
   map.createPane('gridHeatmap');
   map.getPane('gridHeatmap').style.zIndex = 410;
   map.getPane('gridHeatmap').style.pointerEvents = 'none';
-  window._gridRenderer = L.canvas({ pane:'gridHeatmap', padding:0.5 });
-  window._gridRenderer.addTo(map);
+  map.createPane('windParticles');
+  map.getPane('windParticles').style.zIndex = 420;
+  map.getPane('windParticles').style.pointerEvents = 'none';
   map.createPane('climaCorridor');
   map.getPane('climaCorridor').style.zIndex = 450;
+
+  rainRasterLayer = new RainRasterLayer();
+  windParticleLayer = new WindParticleLayer();
 
   // Layer groups (order matters for z-index)
   corridorLayer = L.layerGroup().addTo(map);
@@ -2108,4 +2382,4 @@ try {
 }
 </script>
 </body>
-</html><!-- Build: Mon May 11 14:46:01 CST 2026 -->
+</html><!-- Build: Thu May 14 19:40:00 CST 2026 -->
