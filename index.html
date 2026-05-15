@@ -1204,7 +1204,7 @@ function generateMexicoGrid(){
   }
   return points;
 }
-const GRID_CACHE_KEY = 'climometro_grid_v5';  // bumped: only cache on near-complete coverage
+const GRID_CACHE_KEY = 'climometro_grid_v6';  // bumped: two-pass with refill of missing cells
 function loadCachedGrid(){
   try {
     const raw = localStorage.getItem(GRID_CACHE_KEY);
@@ -1259,6 +1259,7 @@ async function loadGridWeather(onProgress){
   const run = async () => {
     const out = [];
     let failedBatches = 0;
+    // ── PASS 1: fast sweep ────────────────────────────────────────────
     for(let bi = 0; bi < batches.length; bi++){
       if(onProgress) onProgress({ phase:'fetch', current: bi+1, total: batches.length });
       let result = null;
@@ -1277,9 +1278,50 @@ async function loadGridWeather(onProgress){
       } else failedBatches++;
       if(bi < batches.length - 1) await new Promise(r => setTimeout(r, INTER_BATCH_MS));
     }
+    // ── PASS 2: refill missing cells in tiny batches ──────────────────
+    // After 13 batches at 800 ms we've likely tripped Open-Meteo's per-IP
+    // burst limit somewhere in the middle of the run. The fix is to
+    // identify the actual missing cells (not whole batches) and retry
+    // them in much smaller chunks after the rate-limit window resets.
+    const got = new Set(out.map(c => c.lat + ':' + c.lng));
+    const missing = grid.filter(p => !got.has(p.lat + ':' + p.lng));
+    if(missing.length > 0 && missing.length < grid.length * 0.6){
+      console.log('Pass 2: filling '+missing.length+' missing cells in batches of 40 at 1.5 s cadence.');
+      if(onProgress) onProgress({ phase:'fill', current: 0, total: missing.length });
+      const FILL_BATCH = 40;
+      const FILL_INTER_MS = 1500;
+      // Wait a beat first to make sure any active rate-limit window expires.
+      await new Promise(r => setTimeout(r, 3000));
+      let filled = 0;
+      for(let i = 0; i < missing.length; i += FILL_BATCH){
+        const slice = missing.slice(i, i + FILL_BATCH);
+        let result = null;
+        for(let attempt = 0; attempt < 4; attempt++){
+          try { result = await fetchBatch(slice); break; }
+          catch(e){
+            if(attempt === 3) console.warn('Fill batch failed:', e.message);
+            else await new Promise(r => setTimeout(r, 1500 * Math.pow(2, attempt)));
+          }
+        }
+        if(result){
+          result.forEach((fc, pi) => {
+            const p = slice[pi];
+            if(!p) return;
+            out.push({ lat:p.lat, lng:p.lng, daily: (fc && fc.daily) ? fc.daily : null });
+          });
+          filled += result.length;
+        }
+        if(onProgress) onProgress({ phase:'fill', current: Math.min(missing.length, i + FILL_BATCH), total: missing.length });
+        if(i + FILL_BATCH < missing.length) await new Promise(r => setTimeout(r, FILL_INTER_MS));
+      }
+      console.log('Pass 2 filled '+filled+'/'+missing.length+' cells.');
+    } else if(missing.length >= grid.length * 0.6){
+      console.warn('Pass 2 skipped: too many cells missing ('+missing.length+'/'+grid.length+') — likely network failure, not rate limit.');
+    }
     out._failedBatches = failedBatches;
     out._totalBatches = batches.length;
-    if(failedBatches > 0) console.warn('Grid loaded with '+failedBatches+'/'+batches.length+' batches missing — coverage may have holes.');
+    out._coveragePct = Math.round((out.length / grid.length) * 100);
+    if(failedBatches > 0) console.warn('Grid loaded with '+failedBatches+'/'+batches.length+' first-pass batches missing. Final coverage: '+out._coveragePct+'%');
     return out;
   };
   gridWeatherInflight = run().then(out => {
@@ -1677,7 +1719,11 @@ async function setMode(newMode){
       } else if(info.phase === 'fetch'){
         climaLoader.totalBatches = info.total;
         climaLoader.setPhase('Cargando lote '+info.current+' de '+info.total);
-        climaLoader.setProgress(info.current, info.total);
+        // Reserve the last 20 % of the bar for the optional fill pass.
+        climaLoader.setProgress(info.current * 0.8, info.total);
+      } else if(info.phase === 'fill'){
+        climaLoader.setPhase('Rellenando cobertura · '+info.current+'/'+info.total+' celdas');
+        climaLoader.setProgress(0.8 + 0.2 * (info.current / Math.max(1, info.total)), 1);
       }
     });
     if(!grid){
@@ -2725,4 +2771,4 @@ try {
 }
 </script>
 </body>
-</html><!-- Build: Fri May 15 15:00:00 CST 2026 · clima loader overlay with progress + facts -->
+</html><!-- Build: Fri May 15 15:45:00 CST 2026 · clima grid: two-pass refill for guaranteed coverage -->
