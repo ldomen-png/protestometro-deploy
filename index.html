@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>Protestómetro MX — Aleph</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<link rel="stylesheet" href="https://api.mapbox.com/mapbox-gl-js/v3.8.0/mapbox-gl.css">
+<script src="https://api.mapbox.com/mapbox-gl-js/v3.8.0/mapbox-gl.js"></script>
 <style>
 /* ── ALEPH TOKENS ─────────────────────────────────────────── */
 :root{
@@ -377,7 +377,18 @@ html,body{height:100%;width:100%;overflow:hidden;font-family:'Inter',sans-serif;
 /* ── MAP ─────────────────────────────────────────────────── */
 #mapwrap{position:absolute;inset:0;background:#0a0a0a;overflow:hidden;touch-action:none;isolation:isolate;z-index:0;}
 #map{position:absolute;inset:0;background:#0a0a0a;}
-.leaflet-container{background:#0a0a0a!important;font-family:'Inter',sans-serif!important;touch-action:none!important;}
+.mapboxgl-map{background:#0a0a0a!important;font-family:'Inter',sans-serif!important;}
+.mapboxgl-canvas{outline:none!important;}
+/* Mapbox controls — match Aleph dark theme */
+.mapboxgl-ctrl-group{background:rgba(20,20,22,0.85)!important;border:1px solid var(--border)!important;box-shadow:none!important;}
+.mapboxgl-ctrl-group button{background-color:transparent!important;}
+.mapboxgl-ctrl-group button+button{border-top:1px solid var(--border)!important;}
+.mapboxgl-ctrl-icon{filter:invert(1) brightness(1.4) opacity(0.85);}
+.mapboxgl-ctrl-bottom-right .mapboxgl-ctrl{margin-right:10px!important;margin-bottom:38px!important;}
+@media(max-width:760px){.mapboxgl-ctrl-bottom-right .mapboxgl-ctrl{margin-bottom:104px!important;}}
+.mapboxgl-ctrl-attrib{font-size:9px!important;background:rgba(0,0,0,0.6)!important;color:rgba(255,255,255,0.5)!important;}
+.mapboxgl-ctrl-attrib a{color:rgba(255,255,255,0.65)!important;}
+.mapboxgl-ctrl-logo{opacity:0.55;}
 
 /* NEWS TICKER (live feed, bottom of map, Bloomberg-style) */
 #news-ticker{
@@ -439,12 +450,8 @@ html,body{height:100%;width:100%;overflow:hidden;font-family:'Inter',sans-serif;
   position:absolute;inset:0;pointer-events:none;z-index:399;
   background:rgba(15,25,40,0.32);mix-blend-mode:multiply;
 }
-.leaflet-tile{filter:brightness(0.85) saturate(0.75) contrast(0.95);}
-.leaflet-control-attribution{font-size:9px!important;background:rgba(0,0,0,0.6)!important;color:rgba(255,255,255,0.5)!important;}
-.leaflet-control-attribution a{color:rgba(255,255,255,0.65)!important;}
-/* Shift bottom-right controls up so the ticker doesn't cover them */
-.leaflet-bottom.leaflet-right{margin-bottom:38px;}
-@media(max-width:760px){.leaflet-bottom.leaflet-right{margin-bottom:0;}}
+/* Soften Mapbox dark-v11 a touch so brand colors pop on top */
+.mapboxgl-canvas{filter:brightness(0.94) saturate(0.85);}
 /* Also shift the clima legend up so the ticker doesn't cover it */
 #clima-legend{bottom:48px!important;}
 @media(max-width:760px){#clima-legend{bottom:calc(56px + env(safe-area-inset-bottom, 0px) + 90px)!important;}}
@@ -464,16 +471,11 @@ html,body{height:100%;width:100%;overflow:hidden;font-family:'Inter',sans-serif;
 }
 .corr-label.affected{border-color:rgba(224,48,32,0.7);color:#ff8070;}
 
-/* The rain raster already bilinearly interpolates between 0.5° cells via the
-   browser drawImage path, so a light blur on top is enough to erase the last
-   pixel-grid traces and give a Windy/Ventusky-style continuous wash. */
-.leaflet-gridHeatmap-pane{
-  filter:blur(3px);
-  -webkit-filter:blur(3px);
-  will-change:filter;
-}
-canvas.rain-raster,canvas.wind-raster{
-  position:absolute;left:0;top:0;pointer-events:none;
+/* Wind particles ride on a dedicated 2D canvas glued to the mapbox container
+   (Mapbox handles the rain via a canvas-source + raster layer, no DOM canvas
+   needed there). */
+canvas.wind-raster{
+  position:absolute;left:0;top:0;pointer-events:none;z-index:2;
 }
 
 /* CLIMA LEGEND (only visible in clima mode) */
@@ -565,33 +567,24 @@ canvas.rain-raster,canvas.wind-raster{
 .dcorr-tag{background:rgba(228,194,73,0.13);border:1px solid rgba(228,194,73,0.32);
   color:var(--aleph-yellow);font-size:10px;font-weight:500;padding:2px 6px;border-radius:3px;}
 
-.leaflet-popup-content-wrapper{
+/* Mapbox popup styling — glassmorphism to match the rest of the UI */
+.mapboxgl-popup-content{
   background:rgba(15,15,17,0.92)!important;
   -webkit-backdrop-filter:blur(24px) saturate(180%);
-  border:1px solid var(--border-strong)!important;border-radius:6px!important;
-  color:var(--text)!important;box-shadow:0 4px 16px rgba(0,0,0,0.4)!important;
-}
-.leaflet-popup-content{margin:9px 13px!important;font-family:'Inter',sans-serif!important;font-size:12px!important;}
-.leaflet-popup-tip{display:none!important;}
-.leaflet-popup-close-button{display:none!important;}
-
-/* Tooltip styling — same glassmorphism as popups */
-.leaflet-tooltip{
-  background:rgba(15,15,17,0.92)!important;
-  -webkit-backdrop-filter:blur(24px) saturate(180%);
+  backdrop-filter:blur(24px) saturate(180%);
   border:1px solid var(--border-strong)!important;border-radius:6px!important;
   color:var(--text)!important;
   box-shadow:0 4px 16px rgba(0,0,0,0.5)!important;
   font-family:'Inter',sans-serif!important;
   font-size:12px!important;
   padding:8px 11px!important;
-  white-space:normal!important;
   max-width:260px!important;
+  pointer-events:none;
 }
-.leaflet-tooltip-top:before,
-.leaflet-tooltip-bottom:before,
-.leaflet-tooltip-left:before,
-.leaflet-tooltip-right:before{display:none!important;}
+.mapboxgl-popup-tip{display:none!important;}
+.mapboxgl-popup-close-button{display:none!important;}
+.mapboxgl-popup-anchor-top,.mapboxgl-popup-anchor-bottom,
+.mapboxgl-popup-anchor-left,.mapboxgl-popup-anchor-right{pointer-events:none;}
 .tn{font-weight:600;font-size:13px;color:#fff;margin-bottom:2px;}
 .ts{font-size:10px;color:var(--text-dim);margin-bottom:5px;}
 .tl{font-size:10px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;}
@@ -1055,7 +1048,7 @@ function buildHeadline(weekIdx, compact){
 }
 
 // ════════════════════════════════════════════════════════════════════════
-// PHASE 1: UI WIRING (resilient — runs before Leaflet)
+// PHASE 1: UI WIRING (resilient — runs before Mapbox finishes loading)
 // ════════════════════════════════════════════════════════════════════════
 let map = null;
 const isDesktop = window.innerWidth > 760;
@@ -1076,9 +1069,12 @@ let corridorWeatherInflight = null;
 let gridWeatherData = null;
 let gridWeatherInflight = null;
 let gridWeatherFetchedAt = null;
-let rainRasterLayer = null;
-let windParticleLayer = null;
 let windLayerEnabled = true;
+// Mapbox style is loaded asynchronously — refresh* needs to wait. Set to true
+// inside map.on('load'). Anything that mutates layer data short-circuits if false.
+let mapReady = false;
+// Single popup instance we re-use across hover handlers.
+let hoverPopup = null;
 let savedProtestasSemanas = null;
 let savedProtestasDates = null;
 const CLIMA_THRESHOLDS = { yellowRain:5, redRain:30, yellowWind:40, redWind:60 };
@@ -1261,73 +1257,54 @@ function toggleWindLayer(){
   windLayerEnabled = !windLayerEnabled;
   const btn = document.getElementById('wind-toggle');
   if(btn){ btn.classList.toggle('on', windLayerEnabled); btn.textContent = windLayerEnabled ? 'ON' : 'OFF'; }
-  if(!map || !windParticleLayer) return;
+  if(!mapReady || mode !== 'clima') return;
   if(windLayerEnabled){
-    if(!map.hasLayer(windParticleLayer)) windParticleLayer.addTo(map);
-    if(gridWeatherData){ windParticleLayer.setData(gridWeatherData); windParticleLayer.setDayIdx(wk); }
-  } else if(map.hasLayer(windParticleLayer)){
-    map.removeLayer(windParticleLayer);
+    WindOverlay.mount(map);
+    if(gridWeatherData){ WindOverlay.setData(gridWeatherData); WindOverlay.setDayIdx(wk); }
+  } else {
+    WindOverlay.unmount();
   }
 }
+function setLayerVis(id, on){
+  if(!mapReady || !map.getLayer(id)) return;
+  map.setLayoutProperty(id, 'visibility', on ? 'visible' : 'none');
+}
 
-// ── SMOOTH RAIN RASTER LAYER ────────────────────────────────────────────
-// One canvas covering the viewport. Every redraw, we paint each cell as a
-// 1-pixel block in a tiny off-screen canvas, then drawImage onto the main
-// canvas with smoothing on — the browser does bilinear interpolation for
-// free. A light CSS blur on the pane erases the last residue of the 0.5°
-// grid. Net effect: continuous Ventusky-style wash with ~one drawImage call
-// per pan/zoom/day-change instead of ~2.4k L.rectangles.
-const RainRasterLayer = L.Layer.extend({
-  initialize(){ this._cells = null; this._dayIdx = 0; },
-  onAdd(map){
-    this._map = map;
-    this._canvas = L.DomUtil.create('canvas', 'rain-raster');
-    map.getPane('gridHeatmap').appendChild(this._canvas);
-    map.on('moveend zoomend viewreset resize', this._reset, this);
-    this._reset();
+// ── SMOOTH RAIN RASTER (Mapbox canvas source) ───────────────────────────
+// We keep one off-screen canvas at grid resolution (cols × rows pixels). On
+// data/day change we repaint each cell as a single pixel. Mapbox renders the
+// canvas-source as a raster layer with `raster-resampling: linear`, doing
+// bilinear interpolation natively on the GPU — no per-frame work on our end
+// and perfectly synced to the map's smooth zoom/pitch.
+const RainCanvasSource = {
+  canvas: null,
+  cells: null,
+  dayIdx: 0,
+  ensure(){
+    if(this.canvas) return this.canvas;
+    const cols = Math.round((GRID_BOUNDS.maxLng - GRID_BOUNDS.minLng) / GRID_STEP) + 1;
+    const rows = Math.round((GRID_BOUNDS.maxLat - GRID_BOUNDS.minLat) / GRID_STEP) + 1;
+    const c = document.createElement('canvas');
+    c.width = cols; c.height = rows;
+    this.canvas = c;
+    return c;
   },
-  onRemove(map){
-    map.off('moveend zoomend viewreset resize', this._reset, this);
-    if(this._canvas) L.DomUtil.remove(this._canvas);
-    this._canvas = null;
-  },
-  setData(cells){ this._cells = cells; if(this._map) this._draw(); },
-  setDayIdx(d){ this._dayIdx = d|0; if(this._map) this._draw(); },
-  _reset(){
-    if(!this._map || !this._canvas) return;
-    const size = this._map.getSize();
-    const topLeft = this._map.containerPointToLayerPoint([0,0]);
-    L.DomUtil.setPosition(this._canvas, topLeft);
-    this._canvas.width = size.x;
-    this._canvas.height = size.y;
-    this._canvas.style.width = size.x+'px';
-    this._canvas.style.height = size.y+'px';
-    this._draw();
-  },
-  _draw(){
-    if(!this._canvas || !this._cells) return;
-    const ctx = this._canvas.getContext('2d');
-    ctx.clearRect(0,0,this._canvas.width,this._canvas.height);
-    const minLat = GRID_BOUNDS.minLat, maxLat = GRID_BOUNDS.maxLat;
-    const minLng = GRID_BOUNDS.minLng, maxLng = GRID_BOUNDS.maxLng;
-    const cols = Math.round((maxLng - minLng) / GRID_STEP) + 1;
-    const rows = Math.round((maxLat - minLat) / GRID_STEP) + 1;
-    if(!this._off || this._off.width !== cols || this._off.height !== rows){
-      this._off = document.createElement('canvas');
-      this._off.width = cols; this._off.height = rows;
-    }
-    const octx = this._off.getContext('2d');
-    const img = octx.createImageData(cols, rows);
-    const day = this._dayIdx;
-    this._cells.forEach(c => {
-      if(!c.daily || !c.daily.precipitation_sum) return;
-      const mm = c.daily.precipitation_sum[day];
+  paint(){
+    if(!this.cells) return;
+    const c = this.ensure();
+    const ctx = c.getContext('2d');
+    ctx.clearRect(0,0,c.width,c.height);
+    const img = ctx.createImageData(c.width, c.height);
+    const day = this.dayIdx;
+    this.cells.forEach(cell => {
+      if(!cell.daily || !cell.daily.precipitation_sum) return;
+      const mm = cell.daily.precipitation_sum[day];
       const style = rainStyleAleph(mm);
       if(!style) return;
-      const col = Math.round((c.lng - minLng) / GRID_STEP);
-      const row = Math.round((maxLat - c.lat) / GRID_STEP);
-      if(col<0||col>=cols||row<0||row>=rows) return;
-      const idx = (row * cols + col) * 4;
+      const col = Math.round((cell.lng - GRID_BOUNDS.minLng) / GRID_STEP);
+      const row = Math.round((GRID_BOUNDS.maxLat - cell.lat) / GRID_STEP);
+      if(col<0||col>=c.width||row<0||row>=c.height) return;
+      const idx = (row * c.width + col) * 4;
       const m = style.fillColor.match(/rgb\((\d+),(\d+),(\d+)\)/);
       if(!m) return;
       img.data[idx]   = +m[1];
@@ -1335,84 +1312,93 @@ const RainRasterLayer = L.Layer.extend({
       img.data[idx+2] = +m[3];
       img.data[idx+3] = Math.round(style.fillOpacity * 255);
     });
-    octx.putImageData(img, 0, 0);
-    const half = GRID_STEP / 2;
-    const nw = this._map.latLngToContainerPoint([maxLat + half, minLng - half]);
-    const se = this._map.latLngToContainerPoint([minLat - half, maxLng + half]);
-    ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = 'high';
-    ctx.drawImage(this._off, nw.x, nw.y, se.x - nw.x, se.y - nw.y);
-  }
-});
+    ctx.putImageData(img, 0, 0);
+  },
+  setData(cells){ this.cells = cells; this.paint(); },
+  setDayIdx(d){ this.dayIdx = d|0; this.paint(); }
+};
 
-// ── WIND PARTICLE LAYER ─────────────────────────────────────────────────
-// Particles seeded across Mexico, advected by a bilinearly-sampled wind
-// field. Each frame: fade the canvas (trails), step each particle one
-// frame forward along its local wind vector, stroke a segment from previous
-// to new container point. Speed colour = white → yellow → orange → red.
-// Animation pauses while panning/zooming so positions don't smear.
-const WindParticleLayer = L.Layer.extend({
-  initialize(){
-    this._cells = null;
-    this._dayIdx = 0;
-    this._rafId = null;
-    this._particles = [];
-    this._field = null;
-    this._paused = false;
-    this._count = (window.innerWidth > 760) ? 1400 : 500;
+// ── WIND PARTICLE OVERLAY (DOM canvas glued to mapbox container) ────────
+// 2D canvas absolute-positioned over the map, repainted each frame. We use
+// map.project() to convert particle (lat,lng) → screen pixels, and listen
+// to 'move' to follow the basemap during pan/zoom. The wind field is built
+// from Open-Meteo's daily dominant direction + max speed and sampled with
+// bilinear interpolation so flow looks continuous between 0.5° cells.
+const WindOverlay = {
+  canvas: null,
+  ctx: null,
+  map: null,
+  cells: null,
+  dayIdx: 0,
+  particles: [],
+  field: null,
+  rafId: null,
+  count: (window.innerWidth > 760) ? 1400 : 500,
+  mounted: false,
+  mount(map){
+    if(this.mounted) return;
+    this.map = map;
+    const c = document.createElement('canvas');
+    c.className = 'wind-raster';
+    map.getCanvasContainer().appendChild(c);
+    this.canvas = c;
+    this.ctx = c.getContext('2d');
+    this._onMove = () => this._resize();
+    map.on('move', this._onMove);
+    map.on('resize', this._onMove);
+    this._resize();
+    this.mounted = true;
+    this._animate();
   },
-  onAdd(map){
-    this._map = map;
-    this._canvas = L.DomUtil.create('canvas', 'wind-raster');
-    map.getPane('windParticles').appendChild(this._canvas);
-    map.on('moveend zoomend viewreset resize', this._reset, this);
-    map.on('movestart zoomstart', this._stop, this);
-    map.on('moveend zoomend', this._start, this);
-    this._reset();
-    this._start();
+  unmount(){
+    if(!this.mounted) return;
+    cancelAnimationFrame(this.rafId);
+    this.rafId = null;
+    if(this.map && this._onMove){ this.map.off('move', this._onMove); this.map.off('resize', this._onMove); }
+    if(this.canvas && this.canvas.parentNode) this.canvas.parentNode.removeChild(this.canvas);
+    this.canvas = null; this.ctx = null;
+    this.mounted = false;
   },
-  onRemove(map){
-    this._stop();
-    map.off('moveend zoomend viewreset resize', this._reset, this);
-    map.off('movestart zoomstart', this._stop, this);
-    map.off('moveend zoomend', this._start, this);
-    if(this._canvas) L.DomUtil.remove(this._canvas);
-    this._canvas = null;
+  setData(cells){ this.cells = cells; this._buildField(); this._spawn(); },
+  setDayIdx(d){ this.dayIdx = d|0; this._buildField(); this._spawn(); },
+  _resize(){
+    if(!this.canvas || !this.map) return;
+    const c = this.map.getCanvas();
+    const w = c.clientWidth, h = c.clientHeight;
+    if(this.canvas.width !== w || this.canvas.height !== h){
+      this.canvas.width = w; this.canvas.height = h;
+      this.canvas.style.width = w + 'px';
+      this.canvas.style.height = h + 'px';
+    }
   },
-  setData(cells){ this._cells = cells; this._buildField(); this._spawn(); },
-  setDayIdx(d){ this._dayIdx = d|0; this._buildField(); this._spawn(); },
   _buildField(){
-    if(!this._cells) return;
-    const minLat = GRID_BOUNDS.minLat, maxLat = GRID_BOUNDS.maxLat;
-    const minLng = GRID_BOUNDS.minLng, maxLng = GRID_BOUNDS.maxLng;
-    const cols = Math.round((maxLng - minLng) / GRID_STEP) + 1;
-    const rows = Math.round((maxLat - minLat) / GRID_STEP) + 1;
+    if(!this.cells) return;
+    const cols = Math.round((GRID_BOUNDS.maxLng - GRID_BOUNDS.minLng) / GRID_STEP) + 1;
+    const rows = Math.round((GRID_BOUNDS.maxLat - GRID_BOUNDS.minLat) / GRID_STEP) + 1;
     const u = new Float32Array(cols * rows);
     const v = new Float32Array(cols * rows);
     const s = new Float32Array(cols * rows);
-    const day = this._dayIdx;
-    this._cells.forEach(c => {
+    const day = this.dayIdx;
+    this.cells.forEach(c => {
       if(!c.daily) return;
       const sp = c.daily.wind_speed_10m_max ? (c.daily.wind_speed_10m_max[day]||0) : 0;
       const dr = c.daily.wind_direction_10m_dominant ? (c.daily.wind_direction_10m_dominant[day]||0) : 0;
       const rad = dr * Math.PI / 180;
-      // Meteorological convention: direction is where wind comes FROM. Vector
-      // pointing where the air is going to is the negative of that.
-      const col = Math.round((c.lng - minLng) / GRID_STEP);
-      const row = Math.round((maxLat - c.lat) / GRID_STEP);
+      const col = Math.round((c.lng - GRID_BOUNDS.minLng) / GRID_STEP);
+      const row = Math.round((GRID_BOUNDS.maxLat - c.lat) / GRID_STEP);
       if(col<0||col>=cols||row<0||row>=rows) return;
       const i = row * cols + col;
-      u[i] = -sp * Math.sin(rad);  // east-west component (deg lng/h proxy)
-      v[i] =  sp * Math.cos(rad);  // north-south component (deg lat/h proxy, +north)
+      u[i] = -sp * Math.sin(rad);
+      v[i] =  sp * Math.cos(rad);
       s[i] = sp;
     });
-    this._field = { u, v, s, cols, rows, minLat, maxLat, minLng, maxLng };
+    this.field = { u, v, s, cols, rows };
   },
   _sample(lat, lng){
-    const f = this._field;
+    const f = this.field;
     if(!f) return null;
-    const fx = (lng - f.minLng) / GRID_STEP;
-    const fy = (f.maxLat - lat) / GRID_STEP;
+    const fx = (lng - GRID_BOUNDS.minLng) / GRID_STEP;
+    const fy = (GRID_BOUNDS.maxLat - lat) / GRID_STEP;
     const x0 = Math.floor(fx), y0 = Math.floor(fy);
     if(x0 < 0 || x0 >= f.cols-1 || y0 < 0 || y0 >= f.rows-1) return null;
     const dx = fx - x0, dy = fy - y0;
@@ -1424,49 +1410,35 @@ const WindParticleLayer = L.Layer.extend({
     return { u, v, s };
   },
   _spawn(){
-    this._particles = [];
-    for(let i = 0; i < this._count; i++) this._particles.push(this._newP(true));
+    this.particles = [];
+    for(let i = 0; i < this.count; i++) this.particles.push(this._newP(true));
   },
-  _newP(initialPhase){
-    const f = this._field;
-    const lat = f ? (f.minLat + Math.random() * (f.maxLat - f.minLat)) : 23;
-    const lng = f ? (f.minLng + Math.random() * (f.maxLng - f.minLng)) : -102;
-    return { lat, lng, age: initialPhase ? Math.floor(Math.random()*100) : 0, maxAge: 70 + Math.floor(Math.random()*70) };
+  _newP(initial){
+    const lat = GRID_BOUNDS.minLat + Math.random() * (GRID_BOUNDS.maxLat - GRID_BOUNDS.minLat);
+    const lng = GRID_BOUNDS.minLng + Math.random() * (GRID_BOUNDS.maxLng - GRID_BOUNDS.minLng);
+    return { lat, lng, age: initial ? Math.floor(Math.random()*100) : 0, maxAge: 70 + Math.floor(Math.random()*70) };
   },
-  _reset(){
-    if(!this._map || !this._canvas) return;
-    const size = this._map.getSize();
-    const topLeft = this._map.containerPointToLayerPoint([0,0]);
-    L.DomUtil.setPosition(this._canvas, topLeft);
-    this._canvas.width = size.x;
-    this._canvas.height = size.y;
-    this._canvas.style.width = size.x+'px';
-    this._canvas.style.height = size.y+'px';
-  },
-  _stop(){ this._paused = true; if(this._rafId){ cancelAnimationFrame(this._rafId); this._rafId = null; } },
-  _start(){ this._paused = false; if(!this._rafId) this._animate(); },
   _animate(){
-    this._rafId = requestAnimationFrame(() => this._animate());
-    if(!this._canvas || !this._field || this._paused) return;
-    const ctx = this._canvas.getContext('2d');
-    // Trail fade — keep 96% of previous frame's alpha. Lower → shorter trails.
+    this.rafId = requestAnimationFrame(() => this._animate());
+    if(!this.canvas || !this.ctx || !this.field) return;
+    const ctx = this.ctx;
     ctx.globalCompositeOperation = 'destination-in';
     ctx.fillStyle = 'rgba(0,0,0,0.94)';
-    ctx.fillRect(0,0,this._canvas.width,this._canvas.height);
+    ctx.fillRect(0,0,this.canvas.width,this.canvas.height);
     ctx.globalCompositeOperation = 'source-over';
-    const STEP = 0.0006; // degrees per (km/h * frame). Tuned by eye for ~6 zoom.
-    const ps = this._particles;
+    const STEP = 0.0006;
+    const ps = this.particles;
     for(let i = 0; i < ps.length; i++){
       const p = ps[i];
       p.age++;
       if(p.age > p.maxAge){ ps[i] = this._newP(false); continue; }
       const samp = this._sample(p.lat, p.lng);
       if(!samp || samp.s < 0.5){ ps[i] = this._newP(false); continue; }
-      const p0 = this._map.latLngToContainerPoint([p.lat, p.lng]);
+      const p0 = this.map.project([p.lng, p.lat]);
       const cosLat = Math.cos(p.lat * Math.PI / 180) || 1;
       p.lat += samp.v * STEP;
       p.lng += samp.u * STEP / cosLat;
-      const p1 = this._map.latLngToContainerPoint([p.lat, p.lng]);
+      const p1 = this.map.project([p.lng, p.lat]);
       const sp = samp.s;
       let color;
       if(sp < 20)      color = 'rgba(255,255,255,0.55)';
@@ -1481,7 +1453,7 @@ const WindParticleLayer = L.Layer.extend({
       ctx.stroke();
     }
   }
-});
+};
 async function setMode(newMode){
   if(mode === newMode) return;
   document.querySelectorAll('#mode-toggle button').forEach(b => b.classList.toggle('on', b.dataset.mode === newMode));
@@ -1512,8 +1484,14 @@ async function setMode(newMode){
       const sample = grid.filter(c => c.daily && c.daily.precipitation_sum).slice(0, 5).map(c => (c.daily.precipitation_sum[0]||0).toFixed(1));
       dbg(grid.length+' celdas · muestra mm día 0: '+sample.join(', '));
     }
-    if(map && rainRasterLayer && !map.hasLayer(rainRasterLayer)) rainRasterLayer.addTo(map);
-    if(map && windLayerEnabled && windParticleLayer && !map.hasLayer(windParticleLayer)) windParticleLayer.addTo(map);
+    if(mapReady){
+      RainCanvasSource.setData(gridWeatherData);
+      setLayerVis('rain-raster', true);
+      setLayerVis('corridor-base', true);
+      setLayerVis('zonas-hex-fill', false);
+      WindOverlay.setData(gridWeatherData);
+      if(windLayerEnabled) WindOverlay.mount(map); else WindOverlay.unmount();
+    }
     ZONAS.forEach((z, i) => {
       const fc = data[i];
       if(!fc || !fc.daily){ z.semanas = [0,0,0,0,0,0,0]; return; }
@@ -1533,8 +1511,12 @@ async function setMode(newMode){
   } else {
     mode = 'protestas';
     if(brand) brand.textContent = 'Protestómetro';
-    if(map && rainRasterLayer && map.hasLayer(rainRasterLayer)) map.removeLayer(rainRasterLayer);
-    if(map && windParticleLayer && map.hasLayer(windParticleLayer)) map.removeLayer(windParticleLayer);
+    if(mapReady){
+      setLayerVis('rain-raster', false);
+      setLayerVis('corridor-base', false);
+      setLayerVis('zonas-hex-fill', true);
+      WindOverlay.unmount();
+    }
     if(savedProtestasSemanas){
       ZONAS.forEach((z, i) => { z.semanas = savedProtestasSemanas[i]; delete z._climaRain; delete z._climaWind; });
       SEMANAS.length = 0;
@@ -1761,7 +1743,7 @@ function switchPanel(name){
     });
     panel.classList.add('open');
   }
-  if(map && map.invalidateSize) setTimeout(()=>map.invalidateSize(), 250);
+  if(map && map.resize) setTimeout(()=>map.resize(), 250);
 }
 
 // Mode toggle (Protestas | Clima)
@@ -1796,7 +1778,7 @@ document.getElementById('panel').addEventListener('click', (e) => {
     document.getElementById('panel').classList.remove('open');
     document.querySelectorAll('.rail-icon').forEach(el=>el.classList.remove('on'));
     activePanel = null;
-    if(map && map.invalidateSize) setTimeout(()=>map.invalidateSize(), 250);
+    if(map && map.resize) setTimeout(()=>map.resize(), 250);
   }
 });
 
@@ -1900,14 +1882,17 @@ if(isDesktop){
 }
 
 // ════════════════════════════════════════════════════════════════════════
-// PHASE 2: MAP (try/catch — UI works even if Leaflet fails)
+// PHASE 2: MAP (Mapbox GL JS — UI works even if Mapbox fails)
 // ════════════════════════════════════════════════════════════════════════
-let hexLayer, dotsLayer, zmLabelLayer, corridorLayer, corridorLabelLayer, selectedLayer;
+const RING_DEFS=[{km:60,op:0.05},{km:42,op:0.13},{km:28,op:0.25},{km:18,op:0.45},{km:10,op:0.72},{km:5,op:0.92}];
 
-function hexagonLatLng(lat,lng,r){
+// Hexagon ring centred on (lat,lng) with radius r km. Returns [lng,lat]
+// pairs (Mapbox/GeoJSON order) closed at the end.
+function hexagonLngLat(lat,lng,r){
   const k2d=r/111,lf=1/Math.cos(lat*Math.PI/180),c=[];
-  for(let i=0;i<6;i++){const a=Math.PI/3*i;c.push([lat+k2d*Math.sin(a),lng+k2d*lf*Math.cos(a)]);}
-  return c;
+  for(let i=0;i<6;i++){const a=Math.PI/3*i;c.push([lng+k2d*lf*Math.cos(a), lat+k2d*Math.sin(a)]);}
+  c.push(c[0]);
+  return [c];
 }
 function lvlMeta(n){
   if(mode === 'clima'){
@@ -1976,98 +1961,106 @@ function smoothLine(points, segments) {
   return out;
 }
 
-function refreshCorridors(){
-  if(corridorLayer) corridorLayer.clearLayers();
-  if(corridorLabelLayer) corridorLabelLayer.clearLayers();
-  // Outside clima mode, corridors live in the side panel as a list and stay off the map.
-  if(mode !== 'clima' || !layerVis.corr) return;
-  // In clima mode, draw only a tenue base outline of the federal network on top of the rain heatmap.
-  CORRIDORS.forEach(c => {
-    L.polyline(c.wp, {color:'#fff', weight:1.2, opacity:0.22, interactive:false, pane:'climaCorridor'}).addTo(corridorLayer);
+// ── Source data builders ────────────────────────────────────────────────
+function zonasFC(){
+  return {
+    type: 'FeatureCollection',
+    features: ZONAS.map(z => {
+      const lvl = z.semanas[wk] || 0;
+      let intensity = 0;
+      if(mode === 'clima'){
+        const rain = (z._climaRain && z._climaRain[wk] != null) ? z._climaRain[wk] : 0;
+        const wind = (z._climaWind && z._climaWind[wk] != null) ? z._climaWind[wk] : 0;
+        intensity = climaIntensityAt(rain, wind).intensity;
+      }
+      return {
+        type: 'Feature',
+        properties: { cve: z.cve, zm: z.zm, level: lvl, intensity },
+        geometry: { type: 'Point', coordinates: [z.lng, z.lat] }
+      };
+    })
+  };
+}
+function zonasHexFC(){
+  // Six concentric hex rings per active ZM. ringIdx 0 = outer (50px tall flat),
+  // ringIdx 5 = bright core. Filtered & styled in the layer paint expressions.
+  const feats = [];
+  ZONAS.forEach(z => {
+    const lvl = z.semanas[wk] || 0;
+    if(mode !== 'protestas' || lvl === 0) return;
+    RING_DEFS.forEach((r, i) => {
+      feats.push({
+        type: 'Feature',
+        properties: { cve: z.cve, level: lvl, ringIdx: i, ringOp: r.op },
+        geometry: { type: 'Polygon', coordinates: hexagonLngLat(z.lat, z.lng, r.km) }
+      });
+    });
   });
+  return { type: 'FeatureCollection', features: feats };
+}
+function corridorsFC(){
+  return {
+    type: 'FeatureCollection',
+    features: CORRIDORS.map(c => ({
+      type: 'Feature',
+      properties: { id: c.id, name: c.name, type: c.type, affected: highlightedCorridors.has(c.id) },
+      geometry: { type: 'LineString', coordinates: c.wp.map(p => [p[1], p[0]]) }
+    }))
+  };
+}
+function selectionFC(){
+  if(!sel) return { type: 'FeatureCollection', features: [] };
+  return {
+    type: 'FeatureCollection',
+    features: [{ type: 'Feature', properties: { cve: sel.cve }, geometry: { type: 'Point', coordinates: [sel.lng, sel.lat] } }]
+  };
 }
 
+function refreshCorridors(){
+  if(!mapReady) return;
+  const src = map.getSource('corridors');
+  if(src) src.setData(corridorsFC());
+  setLayerVis('corridor-base', mode === 'clima' && layerVis.corr);
+}
 function refreshHex(){
-  if(!hexLayer) return;
-  hexLayer.clearLayers();
-  dotsLayer.clearLayers();
-  zmLabelLayer.clearLayers();
-  selectedLayer.clearLayers();
-  if(!layerVis.hex) return;
+  if(!mapReady) return;
   if(mode === 'clima'){ refreshHexClima(); return; }
-  const RING_DEFS=[{km:60,op:0.05},{km:42,op:0.13},{km:28,op:0.25},{km:18,op:0.45},{km:10,op:0.72},{km:5,op:0.92}];
-  const zoom = map.getZoom();
-  ZONAS.forEach(z => {
-    const n = z.semanas[wk];
-    if(n === 0){
-      const dot = L.circleMarker([z.lat,z.lng], {radius:3, color:'rgba(255,255,255,0.2)', weight:1, fillColor:'#fff', fillOpacity:0.4, interactive:true});
-      dot.bindTooltip(buildTooltipHTML(z), {direction:'top',offset:[0,-4]});
-      dot.on('click', () => doSelect(z));
-      dot.addTo(dotsLayer);
-    } else {
-      const colorHex = n===2?'#e03020':'#e4c249';
-      RING_DEFS.forEach(ring => {
-        const poly = L.polygon(hexagonLatLng(z.lat,z.lng,ring.km), {color:'transparent', weight:0, fillColor:colorHex, fillOpacity:ring.op, interactive:true});
-        poly.bindTooltip(buildTooltipHTML(z), {direction:'top',offset:[0,-4]});
-        poly.on('click', () => doSelect(z));
-        poly.addTo(hexLayer);
-      });
-    }
-    if(layerVis.labels && ((n>0 && zoom>=6) || zoom>=8)){
-      const cls = n===2?'alert-2':n===1?'alert-1':'';
-      L.marker([z.lat,z.lng], {icon: L.divIcon({className:'', html:'<div class="zm-label '+cls+'">'+z.zm+'</div>', iconSize:null, iconAnchor:[0,-12]}), interactive:false, keyboard:false}).addTo(zmLabelLayer);
-    }
-  });
-  if(sel){
-    L.polygon(hexagonLatLng(sel.lat,sel.lng,65), {color:'rgba(255,255,255,0.5)', weight:1.5, fill:false, interactive:false}).addTo(selectedLayer);
-  }
+  const zonasSrc = map.getSource('zonas');
+  if(zonasSrc) zonasSrc.setData(zonasFC());
+  const hexSrc = map.getSource('zonas-hex');
+  if(hexSrc) hexSrc.setData(zonasHexFC());
+  const selSrc = map.getSource('selection');
+  if(selSrc) selSrc.setData(selectionFC());
+  setLayerVis('zonas-hex-fill', layerVis.hex);
+  setLayerVis('zonas-label', layerVis.labels);
 }
 function refreshHexClima(){
-  // Smooth canvas raster (RainRasterLayer) instead of ~2.4k L.rectangles.
-  // Wind particles (WindParticleLayer) overlay the rain. Both layers stay
-  // mounted in clima mode and only swap their day-index when wk changes.
+  if(!mapReady) return;
   if(gridWeatherData){
-    if(rainRasterLayer){
-      rainRasterLayer.setData(gridWeatherData);
-      rainRasterLayer.setDayIdx(wk);
-    }
-    if(windParticleLayer){
-      windParticleLayer.setData(gridWeatherData);
-      windParticleLayer.setDayIdx(wk);
+    RainCanvasSource.setData(gridWeatherData);
+    RainCanvasSource.setDayIdx(wk);
+    if(windLayerEnabled){
+      WindOverlay.setData(gridWeatherData);
+      WindOverlay.setDayIdx(wk);
     }
   } else {
     console.warn('refreshHexClima: gridWeatherData is null — fetch likely failed');
   }
   updateClimaFreshness();
-  // ZM markers — small white dots that always sit above the heatmap and stay clickable.
-  const zoom = map.getZoom();
-  ZONAS.forEach(z => {
-    const rain = (z._climaRain && z._climaRain[wk] != null) ? z._climaRain[wk] : 0;
-    const wind = (z._climaWind && z._climaWind[wk] != null) ? z._climaWind[wk] : 0;
-    const { intensity } = climaIntensityAt(rain, wind);
-    const radius = intensity >= 0.35 ? 4 : 3;
-    const dot = L.circleMarker([z.lat,z.lng], {
-      radius, color:'rgba(0,0,0,0.55)', weight:1,
-      fillColor:'#fff', fillOpacity:0.92, interactive:true
-    });
-    dot.bindTooltip(buildTooltipHTML(z), {direction:'top',offset:[0,-4]});
-    dot.on('click', () => doSelect(z));
-    dot.addTo(dotsLayer);
-    if(layerVis.labels && ((intensity>0.35 && zoom>=6) || zoom>=8)){
-      L.marker([z.lat,z.lng], {icon: L.divIcon({className:'', html:'<div class="zm-label">'+z.zm+'</div>', iconSize:null, iconAnchor:[0,-12]}), interactive:false, keyboard:false}).addTo(zmLabelLayer);
-    }
-  });
-  if(sel){
-    L.circleMarker([sel.lat, sel.lng], {radius:9, color:'rgba(255,255,255,0.85)', weight:1.5, fill:false, interactive:false}).addTo(selectedLayer);
-  }
+  const zonasSrc = map.getSource('zonas');
+  if(zonasSrc) zonasSrc.setData(zonasFC());
+  const selSrc = map.getSource('selection');
+  if(selSrc) selSrc.setData(selectionFC());
+  setLayerVis('zonas-hex-fill', false);
+  setLayerVis('zonas-label', layerVis.labels);
 }
 function refreshMap(){ refreshCorridors(); refreshHex(); }
 
 function doSelect(z){
   sel = z;
   highlightedCorridors = new Set();
-  if(map){
-    map.flyTo([z.lat, z.lng], Math.max(map.getZoom(), 7), {duration:0.7});
+  if(map && mapReady){
+    map.flyTo({ center: [z.lng, z.lat], zoom: Math.max(map.getZoom(), 6.5), speed: 1.4, curve: 1.5 });
   }
   refreshMap();
   showDet(z);
@@ -2119,10 +2112,17 @@ function showDet(z){
     ctaEl.onclick = () => {
       highlightedCorridors = new Set(nearby.map(c=>c.id));
       refreshMap();
-      const allPoints = [];
-      nearby.forEach(c => c.wp.forEach(p => allPoints.push(p)));
-      allPoints.push([z.lat, z.lng]);
-      if(allPoints.length > 1 && map) map.fitBounds(L.latLngBounds(allPoints), {padding:[50,50]});
+      if(!mapReady) return;
+      // Build a Mapbox-style [[swLng,swLat],[neLng,neLat]] bounds from all corridor
+      // waypoints plus the selected ZM.
+      let minLat=z.lat, maxLat=z.lat, minLng=z.lng, maxLng=z.lng;
+      nearby.forEach(c => c.wp.forEach(p => {
+        if(p[0] < minLat) minLat = p[0];
+        if(p[0] > maxLat) maxLat = p[0];
+        if(p[1] < minLng) minLng = p[1];
+        if(p[1] > maxLng) maxLng = p[1];
+      }));
+      map.fitBounds([[minLng, minLat], [maxLng, maxLat]], { padding: 60, duration: 800 });
     };
   }
   document.getElementById('det').style.display = 'block';
@@ -2323,52 +2323,174 @@ tickerState.rafId = requestAnimationFrame(animateTicker);
 // Map init
 // ════════════════════════════════════════════════════════════════════════
 try {
-  if(typeof L === 'undefined') throw new Error('Leaflet not loaded');
+  if(typeof mapboxgl === 'undefined') throw new Error('Mapbox GL JS not loaded');
 
-  map = L.map('map', {
-    center: [23.5, -102.5], zoom: 5, minZoom: 4, maxZoom: 13,
-    zoomControl: false, attributionControl: true,
-    touchZoom: true, scrollWheelZoom: true, doubleClickZoom: true,
-    dragging: true, tap: true, bounceAtZoomLimits: false
+  mapboxgl.accessToken = 'pk.eyJ1IjoibGRvbWVuIiwiYSI6ImNtcDNpMmlpeDBybGIyc3BwbTM4MWF4NncifQ._5ZGHKpVkdC_34NYcT2S5g';
+  map = new mapboxgl.Map({
+    container: 'map',
+    style: 'mapbox://styles/mapbox/dark-v11',
+    center: [-102.5, 23.5],
+    zoom: 4.2,
+    minZoom: 3,
+    maxZoom: 14,
+    attributionControl: true,
+    pitchWithRotate: false,
+    dragRotate: false,
+    touchPitch: false,
+    cooperativeGestures: false
+  });
+  map.addControl(new mapboxgl.NavigationControl({ showCompass:false, visualizePitch:false }), 'bottom-right');
+
+  hoverPopup = new mapboxgl.Popup({ closeButton:false, closeOnClick:false, offset:8, anchor:'top' });
+
+  map.on('load', () => {
+    // ── Sources ───────────────────────────────────────────────────────────
+    map.addSource('rain-canvas', {
+      type: 'canvas',
+      canvas: RainCanvasSource.ensure(),
+      animate: true,
+      coordinates: [
+        [GRID_BOUNDS.minLng - GRID_STEP/2, GRID_BOUNDS.maxLat + GRID_STEP/2],
+        [GRID_BOUNDS.maxLng + GRID_STEP/2, GRID_BOUNDS.maxLat + GRID_STEP/2],
+        [GRID_BOUNDS.maxLng + GRID_STEP/2, GRID_BOUNDS.minLat - GRID_STEP/2],
+        [GRID_BOUNDS.minLng - GRID_STEP/2, GRID_BOUNDS.minLat - GRID_STEP/2]
+      ]
+    });
+    map.addSource('corridors', { type:'geojson', data: corridorsFC() });
+    map.addSource('zonas-hex', { type:'geojson', data: zonasHexFC() });
+    map.addSource('zonas', { type:'geojson', data: zonasFC() });
+    map.addSource('selection', { type:'geojson', data: selectionFC() });
+
+    // ── Layers (bottom → top) ─────────────────────────────────────────────
+    // Insert above the basemap roads label layer so our labels render on top.
+    const firstSymbolLayer = (() => {
+      const layers = map.getStyle().layers;
+      for(const l of layers) if(l.type === 'symbol') return l.id;
+      return undefined;
+    })();
+
+    // Rain raster (clima only) — bilinear interpolation done by Mapbox.
+    map.addLayer({
+      id: 'rain-raster',
+      type: 'raster',
+      source: 'rain-canvas',
+      layout: { visibility: 'none' },
+      paint: { 'raster-opacity': 0.85, 'raster-resampling': 'linear', 'raster-fade-duration': 0 }
+    }, firstSymbolLayer);
+
+    // Corridor base outlines (clima mode only — tenuous white)
+    map.addLayer({
+      id: 'corridor-base',
+      type: 'line',
+      source: 'corridors',
+      layout: { visibility: 'none', 'line-cap':'round', 'line-join':'round' },
+      paint: {
+        'line-color': ['case', ['get','affected'], '#ff8070', '#ffffff'],
+        'line-width': ['case', ['get','affected'], 2.2, 1.2],
+        'line-opacity': ['case', ['get','affected'], 0.85, 0.22]
+      }
+    }, firstSymbolLayer);
+
+    // Hex rings (protestas mode). Six rings per active ZM, opacity from ringOp.
+    map.addLayer({
+      id: 'zonas-hex-fill',
+      type: 'fill',
+      source: 'zonas-hex',
+      paint: {
+        'fill-color': ['case', ['==', ['get','level'], 2], '#e03020', '#e4c249'],
+        'fill-opacity': ['get', 'ringOp']
+      }
+    }, firstSymbolLayer);
+
+    // Dots over ZMs. In clima mode the level=0 dots are still useful as "no rain" pin.
+    map.addLayer({
+      id: 'zonas-circle',
+      type: 'circle',
+      source: 'zonas',
+      paint: {
+        'circle-radius': ['case',
+          ['==', ['get','level'], 0], 3.5,
+          ['==', ['get','level'], 1], 4,
+          5
+        ],
+        'circle-color': '#ffffff',
+        'circle-opacity': 0.92,
+        'circle-stroke-color': 'rgba(0,0,0,0.55)',
+        'circle-stroke-width': 1
+      }
+    });
+
+    // ZM name labels — shown when active OR zoomed in.
+    map.addLayer({
+      id: 'zonas-label',
+      type: 'symbol',
+      source: 'zonas',
+      minzoom: 5.5,
+      filter: ['any', ['>=', ['zoom'], 7.5], ['>', ['get','level'], 0]],
+      layout: {
+        'text-field': ['get','zm'],
+        'text-font': ['Open Sans Semibold', 'Arial Unicode MS Bold'],
+        'text-size': 11,
+        'text-offset': [0, -1.3],
+        'text-anchor': 'bottom',
+        'text-allow-overlap': false,
+        'text-padding': 3
+      },
+      paint: {
+        'text-color': ['case',
+          ['==', ['get','level'], 2], '#ff8070',
+          ['==', ['get','level'], 1], '#f5d066',
+          '#ffffff'
+        ],
+        'text-halo-color': 'rgba(8,10,14,0.95)',
+        'text-halo-width': 2.5,
+        'text-halo-blur': 0
+      }
+    });
+
+    // Selection ring — a single big white circle around the selected ZM.
+    map.addLayer({
+      id: 'selection-ring',
+      type: 'circle',
+      source: 'selection',
+      paint: {
+        'circle-radius': 18,
+        'circle-color': 'transparent',
+        'circle-stroke-color': 'rgba(255,255,255,0.85)',
+        'circle-stroke-width': 1.5,
+        'circle-pitch-alignment': 'map'
+      }
+    });
+
+    // ── Interactivity ─────────────────────────────────────────────────────
+    const hoverIn = (e) => {
+      map.getCanvas().style.cursor = 'pointer';
+      const cve = e.features[0].properties.cve;
+      const z = ZONAS.find(z => z.cve === cve);
+      if(!z) return;
+      hoverPopup.setLngLat(e.lngLat).setHTML(buildTooltipHTML(z)).addTo(map);
+    };
+    const hoverOut = () => { map.getCanvas().style.cursor = ''; hoverPopup.remove(); };
+    const onClick = (e) => {
+      const cve = e.features[0].properties.cve;
+      const z = ZONAS.find(z => z.cve === cve);
+      if(z) doSelect(z);
+    };
+    ['zonas-circle','zonas-hex-fill'].forEach(id => {
+      map.on('mouseenter', id, hoverIn);
+      map.on('mouseleave', id, hoverOut);
+      map.on('click', id, onClick);
+    });
+
+    mapReady = true;
+    refreshMap();
+    setTimeout(() => map.resize(), 100);
+    setTimeout(() => map.resize(), 500);
   });
 
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19, attribution: '© OpenStreetMap', subdomains: ['a','b','c']
-  }).addTo(map);
-  map.getContainer().classList.add('style-dark');
-
-  L.control.zoom({position: 'bottomright'}).addTo(map);
-
-  // Custom panes for clima mode (bottom → top):
-  //   gridHeatmap  410  rain raster (smooth bilinear canvas, blurred)
-  //   windParticles 420 animated wind streamlines
-  //   climaCorridor 450 corridor outlines on top of weather
-  map.createPane('gridHeatmap');
-  map.getPane('gridHeatmap').style.zIndex = 410;
-  map.getPane('gridHeatmap').style.pointerEvents = 'none';
-  map.createPane('windParticles');
-  map.getPane('windParticles').style.zIndex = 420;
-  map.getPane('windParticles').style.pointerEvents = 'none';
-  map.createPane('climaCorridor');
-  map.getPane('climaCorridor').style.zIndex = 450;
-
-  rainRasterLayer = new RainRasterLayer();
-  windParticleLayer = new WindParticleLayer();
-
-  // Layer groups (order matters for z-index)
-  corridorLayer = L.layerGroup().addTo(map);
-  corridorLabelLayer = L.layerGroup().addTo(map);
-  hexLayer = L.layerGroup().addTo(map);
-  dotsLayer = L.layerGroup().addTo(map);
-  zmLabelLayer = L.layerGroup().addTo(map);
-  selectedLayer = L.layerGroup().addTo(map);
-
-  map.on('zoomend', refreshMap);
-
-  refreshMap();
-  setTimeout(() => map.invalidateSize(), 100);
-  setTimeout(() => map.invalidateSize(), 500);
-
+  map.on('error', (e) => {
+    if(e && e.error) console.warn('Mapbox:', e.error.message || e.error);
+  });
 } catch(err) {
   console.error('Map initialization failed:', err);
   const mapEl = document.getElementById('map');
@@ -2382,4 +2504,4 @@ try {
 }
 </script>
 </body>
-</html><!-- Build: Thu May 14 19:40:00 CST 2026 -->
+</html><!-- Build: Fri May 15 11:10:00 CST 2026 · Mapbox GL JS migration -->
