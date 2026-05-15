@@ -376,10 +376,10 @@ html,body{height:100%;width:100%;overflow:hidden;font-family:'Inter',sans-serif;
 
 /* ── MAP ─────────────────────────────────────────────────── */
 #mapwrap{position:absolute;inset:0;background:#0a0a0a;overflow:hidden;touch-action:none;isolation:isolate;z-index:0;}
-#map{position:absolute;inset:0;background:#0a0a0a;}
-.mapboxgl-map{background:#0a0a0a!important;font-family:'Inter',sans-serif!important;}
+#map{position:absolute;inset:0;background:#f4f4f4;}
+.mapboxgl-map{background:#f4f4f4!important;font-family:'Inter',sans-serif!important;}
 .mapboxgl-canvas{outline:none!important;}
-/* Mapbox controls — match Aleph dark theme */
+/* Mapbox controls — dark chrome on light basemap (matches Aleph header) */
 .mapboxgl-ctrl-group{background:rgba(20,20,22,0.85)!important;border:1px solid var(--border)!important;box-shadow:none!important;}
 .mapboxgl-ctrl-group button{background-color:transparent!important;}
 .mapboxgl-ctrl-group button+button{border-top:1px solid var(--border)!important;}
@@ -446,12 +446,11 @@ html,body{height:100%;width:100%;overflow:hidden;font-family:'Inter',sans-serif;
 }
 
 /* Dark mode: subtle filter + overlay, keeping map legible */
-#map-overlay{
-  position:absolute;inset:0;pointer-events:none;z-index:399;
-  background:rgba(15,25,40,0.32);mix-blend-mode:multiply;
-}
-/* Soften Mapbox dark-v11 a touch so brand colors pop on top */
-.mapboxgl-canvas{filter:brightness(0.94) saturate(0.85);}
+/* Vignette removed for the light basemap — kept the element for backwards
+   compat in case any js still references it. */
+#map-overlay{position:absolute;inset:0;pointer-events:none;display:none;}
+/* Slightly desaturate the light basemap so the alert/rain colors pop */
+.mapboxgl-canvas{filter:saturate(0.7) brightness(1.02);}
 /* Also shift the clima legend up so the ticker doesn't cover it */
 #clima-legend{bottom:48px!important;}
 @media(max-width:760px){#clima-legend{bottom:calc(56px + env(safe-area-inset-bottom, 0px) + 90px)!important;}}
@@ -855,10 +854,10 @@ canvas.wind-raster{
           <span class="cl-label">Viento</span>
           <div class="cl-wind">
             <button id="wind-toggle" class="cl-toggle on" type="button">ON</button>
-            <span class="cl-wind-key"><i style="background:#fff"></i>&lt;20</span>
-            <span class="cl-wind-key"><i style="background:#e4c249"></i>20–40</span>
-            <span class="cl-wind-key"><i style="background:#ff9530"></i>40–60</span>
-            <span class="cl-wind-key"><i style="background:#e03020"></i>60+ km/h</span>
+            <span class="cl-wind-key"><i style="background:#28282e"></i>&lt;20</span>
+            <span class="cl-wind-key"><i style="background:#a78117"></i>20–40</span>
+            <span class="cl-wind-key"><i style="background:#c8721c"></i>40–60</span>
+            <span class="cl-wind-key"><i style="background:#c81f10"></i>60+ km/h</span>
           </div>
         </div>
         <div id="clima-fresh" class="cl-fresh">—</div>
@@ -1441,10 +1440,10 @@ const WindOverlay = {
       const p1 = this.map.project([p.lng, p.lat]);
       const sp = samp.s;
       let color;
-      if(sp < 20)      color = 'rgba(255,255,255,0.55)';
-      else if(sp < 40) color = 'rgba(228,194,73,0.75)';
-      else if(sp < 60) color = 'rgba(255,149,48,0.88)';
-      else             color = 'rgba(224,48,32,0.95)';
+      if(sp < 20)      color = 'rgba(40,40,46,0.55)';
+      else if(sp < 40) color = 'rgba(167,129,23,0.80)';
+      else if(sp < 60) color = 'rgba(200,114,28,0.90)';
+      else             color = 'rgba(200,31,16,0.95)';
       ctx.strokeStyle = color;
       ctx.lineWidth = 1.1;
       ctx.beginPath();
@@ -2328,7 +2327,7 @@ try {
   mapboxgl.accessToken = 'pk.eyJ1IjoibGRvbWVuIiwiYSI6ImNtcDNpMmlpeDBybGIyc3BwbTM4MWF4NncifQ._5ZGHKpVkdC_34NYcT2S5g';
   map = new mapboxgl.Map({
     container: 'map',
-    style: 'mapbox://styles/mapbox/dark-v11',
+    style: 'mapbox://styles/mapbox/light-v11',
     center: [-102.5, 23.5],
     zoom: 4.2,
     minZoom: 3,
@@ -2378,16 +2377,16 @@ try {
       paint: { 'raster-opacity': 0.85, 'raster-resampling': 'linear', 'raster-fade-duration': 0 }
     }, firstSymbolLayer);
 
-    // Corridor base outlines (clima mode only — tenuous white)
+    // Corridor base outlines (clima mode only — tenuous dark on light map)
     map.addLayer({
       id: 'corridor-base',
       type: 'line',
       source: 'corridors',
       layout: { visibility: 'none', 'line-cap':'round', 'line-join':'round' },
       paint: {
-        'line-color': ['case', ['get','affected'], '#ff8070', '#ffffff'],
-        'line-width': ['case', ['get','affected'], 2.2, 1.2],
-        'line-opacity': ['case', ['get','affected'], 0.85, 0.22]
+        'line-color': ['case', ['get','affected'], '#c81f10', '#1a1a1a'],
+        'line-width': ['case', ['get','affected'], 2.4, 1.4],
+        'line-opacity': ['case', ['get','affected'], 0.9, 0.42]
       }
     }, firstSymbolLayer);
 
@@ -2402,7 +2401,7 @@ try {
       }
     }, firstSymbolLayer);
 
-    // Dots over ZMs. In clima mode the level=0 dots are still useful as "no rain" pin.
+    // Dots over ZMs — dark dots on the light basemap so they read clearly.
     map.addLayer({
       id: 'zonas-circle',
       type: 'circle',
@@ -2413,10 +2412,10 @@ try {
           ['==', ['get','level'], 1], 4,
           5
         ],
-        'circle-color': '#ffffff',
-        'circle-opacity': 0.92,
-        'circle-stroke-color': 'rgba(0,0,0,0.55)',
-        'circle-stroke-width': 1
+        'circle-color': '#1a1a1a',
+        'circle-opacity': 0.85,
+        'circle-stroke-color': 'rgba(255,255,255,0.9)',
+        'circle-stroke-width': 1.2
       }
     });
 
@@ -2438,17 +2437,17 @@ try {
       },
       paint: {
         'text-color': ['case',
-          ['==', ['get','level'], 2], '#ff8070',
-          ['==', ['get','level'], 1], '#f5d066',
-          '#ffffff'
+          ['==', ['get','level'], 2], '#c81f10',
+          ['==', ['get','level'], 1], '#a78117',
+          '#1a1a1a'
         ],
-        'text-halo-color': 'rgba(8,10,14,0.95)',
+        'text-halo-color': 'rgba(255,255,255,0.95)',
         'text-halo-width': 2.5,
         'text-halo-blur': 0
       }
     });
 
-    // Selection ring — a single big white circle around the selected ZM.
+    // Selection ring — single dark ring around the selected ZM (visible on light bg).
     map.addLayer({
       id: 'selection-ring',
       type: 'circle',
@@ -2456,8 +2455,8 @@ try {
       paint: {
         'circle-radius': 18,
         'circle-color': 'transparent',
-        'circle-stroke-color': 'rgba(255,255,255,0.85)',
-        'circle-stroke-width': 1.5,
+        'circle-stroke-color': 'rgba(10,10,12,0.78)',
+        'circle-stroke-width': 1.8,
         'circle-pitch-alignment': 'map'
       }
     });
@@ -2504,4 +2503,4 @@ try {
 }
 </script>
 </body>
-</html><!-- Build: Fri May 15 11:10:00 CST 2026 · Mapbox GL JS migration -->
+</html><!-- Build: Fri May 15 12:00:00 CST 2026 · Mapbox light-v11 basemap -->
