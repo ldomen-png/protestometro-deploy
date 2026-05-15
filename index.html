@@ -1094,7 +1094,10 @@ const RAIN_STOPS = [
   { mm:50,  rgb:[224,48,32],   a:0.92 }
 ];
 function rainStyleAleph(mm){
-  if(mm == null || mm < 0.3) return null;
+  if(mm == null) return null;
+  // Faint baseline for dry-but-covered cells. Without this the eye reads
+  // "no rain" as "no data" and central Mexico in May looks like a hole.
+  if(mm < 0.3) return { fillColor:'rgb(180,195,210)', fillOpacity:0.10 };
   for(let i = 0; i < RAIN_STOPS.length - 1; i++){
     const a = RAIN_STOPS[i], b = RAIN_STOPS[i+1];
     if(mm >= a.mm && mm < b.mm){
@@ -1119,7 +1122,7 @@ function generateMexicoGrid(){
   }
   return points;
 }
-const GRID_CACHE_KEY = 'climometro_grid_v4';  // bumped: smaller batches so northern Mexico stops disappearing
+const GRID_CACHE_KEY = 'climometro_grid_v5';  // bumped: only cache on near-complete coverage
 function loadCachedGrid(){
   try {
     const raw = localStorage.getItem(GRID_CACHE_KEY);
@@ -1148,13 +1151,16 @@ async function loadGridWeather(onProgress){
     return gridWeatherData;
   }
   const grid = generateMexicoGrid();
-  // Sequential batches. Open-Meteo's hard URL cap is ~8KB; adding
-  // wind_direction_10m_dominant + forecast_days=7 pushes us over the line at
-  // 500 pts (which silently killed the northern batches, leaving Sonora /
-  // Chihuahua / Baja blank). 200 pts keeps each request under ~3.5 KB with
-  // healthy margin, and we now retry once on failure before giving up so
-  // transient 429s don't leave geographic holes either.
+  // Sequential batches with conservative throttle. Open-Meteo's free tier
+  // is generous on overall quota (10k/day) but stingy on burst — sending 13
+  // batches at 5/sec was leaving geographic holes in the middle of the
+  // country with no explicit 429 (silent timeouts). 800 ms between batches
+  // = ~1.25 req/sec which they tolerate happily. Per-batch retry with
+  // exponential backoff (1s, 2s, 4s) catches any straggling failures, and
+  // we refuse to cache a fetch that lost more than 5% of batches so the
+  // next visit gets a clean re-try instead of being stuck on a holey grid.
   const BATCH = 200;
+  const INTER_BATCH_MS = 800;
   const batches = [];
   for(let i = 0; i < grid.length; i += BATCH) batches.push(grid.slice(i, i + BATCH));
   const fetchBatch = async (pts) => {
@@ -1170,15 +1176,15 @@ async function loadGridWeather(onProgress){
   };
   const run = async () => {
     const out = [];
-    let failed = 0;
+    let failedBatches = 0;
     for(let bi = 0; bi < batches.length; bi++){
       if(onProgress) onProgress({ phase:'fetch', current: bi+1, total: batches.length });
       let result = null;
-      for(let attempt = 0; attempt < 2; attempt++){
+      for(let attempt = 0; attempt < 3; attempt++){
         try { result = await fetchBatch(batches[bi]); break; }
         catch(e){
-          if(attempt === 1) console.warn('Grid batch '+(bi+1)+'/'+batches.length+' failed both attempts:', e.message);
-          else await new Promise(r => setTimeout(r, 600));
+          if(attempt === 2) console.warn('Grid batch '+(bi+1)+'/'+batches.length+' failed after 3 attempts:', e.message);
+          else await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt)));
         }
       }
       if(result){
@@ -1186,17 +1192,23 @@ async function loadGridWeather(onProgress){
           const p = batches[bi][pi];
           out.push({ lat:p.lat, lng:p.lng, daily: (fc && fc.daily) ? fc.daily : null });
         });
-      } else failed++;
-      if(bi < batches.length - 1) await new Promise(r => setTimeout(r, 200));
+      } else failedBatches++;
+      if(bi < batches.length - 1) await new Promise(r => setTimeout(r, INTER_BATCH_MS));
     }
-    if(failed > 0) console.warn('Grid loaded with '+failed+'/'+batches.length+' batches missing — coverage may have holes.');
+    out._failedBatches = failedBatches;
+    out._totalBatches = batches.length;
+    if(failedBatches > 0) console.warn('Grid loaded with '+failedBatches+'/'+batches.length+' batches missing — coverage may have holes.');
     return out;
   };
   gridWeatherInflight = run().then(out => {
     gridWeatherData = out;
     gridWeatherFetchedAt = Date.now();
     gridWeatherInflight = null;
-    if(out.length > 0) saveGridCache(out);
+    // Only cache if coverage is essentially complete — otherwise next visit
+    // would be stuck with the same Swiss-cheese map until tomorrow.
+    const failRate = (out._failedBatches || 0) / Math.max(1, out._totalBatches || 1);
+    if(out.length > 0 && failRate <= 0.05) saveGridCache(out);
+    else console.warn('Skipping cache write: '+Math.round(failRate*100)+'% batches missing.');
     console.log('Grid weather loaded:', out.length, 'cells across', batches.length, 'sequential batches');
     return gridWeatherData;
   }).catch(e => { console.warn('Grid weather failed:', e); gridWeatherInflight = null; return null; });
@@ -1442,7 +1454,11 @@ const WindOverlay = {
       p.age++;
       if(p.age > p.maxAge){ ps[i] = this._newP(false); continue; }
       const samp = this._sample(p.lat, p.lng);
-      if(!samp || samp.s < 0.5){ ps[i] = this._newP(false); continue; }
+      if(!samp){ ps[i] = this._newP(false); continue; }
+      // Was 0.5 — that hid wind in calm cells (central altiplano in dry
+      // season) and looked like missing data. 0.05 still skips truly null
+      // samples but lets calm areas show slow drift.
+      if(samp.s < 0.05){ ps[i] = this._newP(false); continue; }
       const p0 = this.map.project([p.lng, p.lat]);
       const cosLat = Math.cos(p.lat * Math.PI / 180) || 1;
       p.lat += samp.v * STEP;
@@ -1490,8 +1506,12 @@ async function setMode(newMode){
     if(!grid){
       dbg('Error: fetch grid falló');
     } else {
-      const sample = grid.filter(c => c.daily && c.daily.precipitation_sum).slice(0, 5).map(c => (c.daily.precipitation_sum[0]||0).toFixed(1));
-      dbg(grid.length+' celdas · muestra mm día 0: '+sample.join(', '));
+      const totalCells = 39 * 65;
+      const coverage = Math.round((grid.length / totalCells) * 100);
+      const failed = grid._failedBatches || 0;
+      const total = grid._totalBatches || '?';
+      const sample = grid.filter(c => c.daily && c.daily.precipitation_sum).slice(0, 3).map(c => (c.daily.precipitation_sum[0]||0).toFixed(1));
+      dbg(grid.length+'/'+totalCells+' celdas ('+coverage+'%) · '+(total-failed)+'/'+total+' batches OK · mm hoy: '+sample.join(', '));
     }
     if(mapReady){
       RainCanvasSource.setData(gridWeatherData);
@@ -2522,4 +2542,4 @@ try {
 }
 </script>
 </body>
-</html><!-- Build: Fri May 15 13:30:00 CST 2026 · weekly sparkline + grid coverage fix -->
+</html><!-- Build: Fri May 15 14:00:00 CST 2026 · grid: throttle + retry + coverage check -->
