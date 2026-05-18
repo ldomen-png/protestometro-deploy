@@ -777,7 +777,7 @@ canvas.wind-raster{
           <rect x="10" y="6" width="4" height="14"/>
           <rect x="17" y="3" width="4" height="17"/>
         </svg>
-        <div class="rail-tooltip">Histórico</div>
+        <div class="rail-tooltip">Predicción semanal</div>
       </div>
       <div class="rail-icon" data-panel="corredores" role="button" tabindex="0">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
@@ -834,7 +834,7 @@ canvas.wind-raster{
       <!-- HISTÓRICO -->
       <div class="panel-content" data-panel="historico" style="display:none;flex-direction:column;flex:1;min-height:0">
         <div class="panel-header">
-          <div class="panel-title" id="hist-title">Histórico</div>
+          <div class="panel-title" id="hist-title">Predicción semanal</div>
           <div class="panel-close" data-close role="button" tabindex="0">✕</div>
         </div>
         <div class="panel-body">
@@ -1136,7 +1136,14 @@ function buildHeadline(weekIdx, compact){
 let map = null;
 const isDesktop = window.innerWidth > 760;
 let activePanel = null;
-let wk = SEMANAS.length - 1;
+function currentWeekIdx(){
+  const today = new Date().toISOString().slice(0,10);
+  for(let i = SEMANAS.length - 1; i >= 0; i--){
+    if(SEMANAS[i] <= today) return i;
+  }
+  return SEMANAS.length - 1;
+}
+let wk = currentWeekIdx();
 let sel = null;
 let layerVis = {hex:true, corr:true, labels:true};
 let filterVis = {alert:true, historic:true, none:false};
@@ -1772,7 +1779,7 @@ async function setMode(newMode){
     if(brand) brand.textContent = 'Protestómetro';
     if(mapReady){
       setLayerVis('rain-raster', false);
-      setLayerVis('corridor-base', false);
+      setLayerVis('corridor-base', true);
       setLayerVis('zonas-hex-fill', true);
       WindOverlay.unmount();
     }
@@ -1780,7 +1787,7 @@ async function setMode(newMode){
       ZONAS.forEach((z, i) => { z.semanas = savedProtestasSemanas[i]; delete z._climaRain; delete z._climaWind; });
       SEMANAS.length = 0;
       savedProtestasDates.forEach(s => SEMANAS.push(s));
-      wk = SEMANAS.length - 1;
+      wk = currentWeekIdx();
     }
   }
   recomputeZMStats();
@@ -1938,11 +1945,11 @@ function animateTicker(){
 function applyHistoricoCopy(){
   const isClima = (mode === 'clima');
   const title = document.getElementById('hist-title');
-  if(title) title.textContent = isClima ? 'Pronóstico 7 días' : 'Histórico';
+  if(title) title.textContent = isClima ? 'Pronóstico 7 días' : 'Predicción semanal';
   const intro = document.getElementById('hist-intro');
   if(intro) intro.textContent = isClima
     ? '7 días de pronóstico por zona, ordenadas por lluvia máxima. Click en barra para saltar a ese día.'
-    : '18 semanas monitoreadas, ordenadas por frecuencia. Click en barra para saltar a esa semana.';
+    : 'Predicción semanal de afectaciones por protestas. Cada columna es la predicción para esa semana, con histórico de 18 semanas. Click en barra para saltar a otra semana.';
 
   const histLegend = document.getElementById('hist-legend');
   if(histLegend){
@@ -2265,11 +2272,23 @@ function zonasHexFC(){
 function corridorsFC(){
   return {
     type: 'FeatureCollection',
-    features: CORRIDORS.map(c => ({
-      type: 'Feature',
-      properties: { id: c.id, name: c.name, type: c.type, affected: highlightedCorridors.has(c.id) },
-      geometry: { type: 'LineString', coordinates: c.wp.map(p => [p[1], p[0]]) }
-    }))
+    features: CORRIDORS.map(c => {
+      let weekLevel = 0;
+      if(mode === 'protestas'){
+        for(const z of ZONAS){
+          const lvl = z.semanas[wk] || 0;
+          if(lvl > weekLevel && zmCorridorDistKm(z, c) < PROXIMITY_KM){
+            weekLevel = lvl;
+            if(weekLevel === 2) break;
+          }
+        }
+      }
+      return {
+        type: 'Feature',
+        properties: { id: c.id, name: c.name, type: c.type, affected: highlightedCorridors.has(c.id), weekLevel },
+        geometry: { type: 'LineString', coordinates: c.wp.map(p => [p[1], p[0]]) }
+      };
+    })
   };
 }
 function selectionFC(){
@@ -2284,7 +2303,7 @@ function refreshCorridors(){
   if(!mapReady) return;
   const src = map.getSource('corridors');
   if(src) src.setData(corridorsFC());
-  setLayerVis('corridor-base', mode === 'clima' && layerVis.corr);
+  setLayerVis('corridor-base', mode === 'protestas' ? true : layerVis.corr);
 }
 function refreshHex(){
   if(!mapReady) return;
@@ -2397,12 +2416,12 @@ function showDet(z){
 // ════════════════════════════════════════════════════════════════════════
 function renderAll(){
   const ds = fmtD(SEMANAS[wk]);
-  const isCurrent = (wk === SEMANAS.length-1);
+  const isCurrent = (mode === 'clima') ? (wk === SEMANAS.length-1) : (wk === currentWeekIdx());
   const isClima = (mode === 'clima');
   const climaDayLabels = ['HOY','MAÑANA','+2 DÍAS','+3 DÍAS','+4 DÍAS','+5 DÍAS','+6 DÍAS'];
   const periodPrefix = isClima
     ? (climaDayLabels[wk] || ('+'+wk+' DÍAS')) + ' · '
-    : (isCurrent ? 'ESTA SEMANA · ' : 'SEMANA · ');
+    : (isCurrent ? 'PREDICCIÓN ESTA SEMANA · ' : 'PREDICCIÓN SEMANA · ');
 
   // Week labels (both desktop panel + mobile float)
   document.getElementById('wlbl-r').textContent = ds;
@@ -2514,8 +2533,8 @@ function renderHistory(){
     if(isClima){
       cwEl.textContent = '';
     } else {
-      const isCurrent = (wk === SEMANAS.length - 1);
-      cwEl.textContent = (isCurrent ? 'Esta semana · ' : 'Semana del ') + fmtD(SEMANAS[wk]);
+      const isCurrent = (wk === currentWeekIdx());
+      cwEl.textContent = (isCurrent ? 'Predicción esta semana · ' : 'Semana del ') + fmtD(SEMANAS[wk]);
     }
   }
 
@@ -2679,16 +2698,29 @@ try {
       paint: { 'raster-opacity': 0.85, 'raster-resampling': 'linear', 'raster-fade-duration': 0 }
     }, firstSymbolLayer);
 
-    // Corridor base outlines (clima mode only — tenuous dark on light map)
+    // Corridor base outlines — always visible in protestas (colored by this-week's affectation), toggleable in clima.
     map.addLayer({
       id: 'corridor-base',
       type: 'line',
       source: 'corridors',
       layout: { visibility: 'none', 'line-cap':'round', 'line-join':'round' },
       paint: {
-        'line-color': ['case', ['get','affected'], '#c81f10', '#1a1a1a'],
-        'line-width': ['case', ['get','affected'], 2.4, 1.4],
-        'line-opacity': ['case', ['get','affected'], 0.9, 0.42]
+        'line-color': ['case',
+          ['get','affected'], '#c81f10',
+          ['==', ['get','weekLevel'], 2], '#e03020',
+          ['==', ['get','weekLevel'], 1], '#e4c249',
+          '#1a1a1a'
+        ],
+        'line-width': ['case',
+          ['get','affected'], 2.6,
+          ['>', ['get','weekLevel'], 0], 2.2,
+          1.4
+        ],
+        'line-opacity': ['case',
+          ['get','affected'], 0.92,
+          ['>', ['get','weekLevel'], 0], 0.82,
+          0.32
+        ]
       }
     }, firstSymbolLayer);
 
