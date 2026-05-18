@@ -1985,8 +1985,7 @@ function applyHistoricoCopy(){
       ).join('');
       dayHeader.innerHTML =
         '<div style="flex:0 0 100px;font-size:9px;color:var(--text-dim);font-weight:600;letter-spacing:0.05em;text-transform:uppercase">Zona</div>'
-        +'<div style="flex:1;display:flex;align-items:center">'+bands+'</div>'
-        +'<div style="min-width:46px;text-align:right;font-size:9px;color:var(--text-dim);font-weight:600;letter-spacing:0.04em;text-transform:uppercase">Activas</div>';
+        +'<div style="flex:1;display:flex;align-items:center">'+bands+'</div>';
       dayHeader.style.display = 'flex';
     }
   }
@@ -2539,7 +2538,7 @@ function renderHistory(){
       const hl = i===wk?'outline:2px solid var(--aleph-yellow);outline-offset:1px;box-shadow:0 0 6px rgba(228,194,73,0.5);':'';
       return '<div class="hist-bar" style="background:'+c+';'+bd+';'+hl+'" onclick="event.stopPropagation();jmpW('+i+')" title="'+fmtD(SEMANAS[i])+'"></div>';
     }).join('');
-    return '<div class="hist-row"><div class="hist-name" onclick="clkZ('+z.cve+')">'+z.zm+'</div><div class="hist-bars">'+bars+'</div><div class="hist-count">'+z.alertas+'/'+SEMANAS.length+'</div></div>';
+    return '<div class="hist-row"><div class="hist-name" onclick="clkZ('+z.cve+')">'+z.zm+'</div><div class="hist-bars">'+bars+'</div></div>';
   }).join('');
   const neverCount = ZONAS.filter(z => z.alertas === 0).length;
   el.innerHTML = html + (neverCount > 0 ? '<div style="padding:14px 16px;font-size:11px;color:var(--text-dim);font-style:italic;">+ '+neverCount+' zonas sin alertas en el periodo</div>' : '');
@@ -2587,6 +2586,7 @@ function renderCorridors(){
 }
 
 // Initial render (works without map)
+applyHistoricoCopy();
 renderAll();
 renderTicker();
 tickerState.rafId = requestAnimationFrame(animateTicker);
