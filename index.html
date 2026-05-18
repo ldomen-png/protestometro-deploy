@@ -849,6 +849,7 @@ canvas.wind-raster{
               <span><span style="display:inline-block;width:8px;height:8px;background:rgba(255,255,255,0.08);border:1px solid var(--border);border-radius:1px;vertical-align:middle;margin-right:3px;"></span>Sin alerta</span>
             </div>
           </div>
+          <div id="hist-week-caret" style="display:none;align-items:center;gap:8px;padding:2px 16px 0;"></div>
           <div id="hist-day-header" style="display:none;align-items:center;gap:8px;padding:6px 16px 4px;border-bottom:1px solid rgba(255,255,255,0.06);"></div>
           <div id="hist-list"></div>
         </div>
@@ -2518,6 +2519,23 @@ function renderHistory(){
     }
   }
 
+  const caretEl = document.getElementById('hist-week-caret');
+  if(caretEl){
+    if(isClima){
+      caretEl.style.display = 'none';
+    } else {
+      const cells = SEMANAS.map((_,i) =>
+        i === wk
+          ? '<div style="flex:1;text-align:center;color:var(--aleph-yellow);font-size:10px;line-height:1;font-weight:700">▼</div>'
+          : '<div style="flex:1"></div>'
+      ).join('');
+      caretEl.innerHTML =
+        '<div style="flex:0 0 100px"></div>'
+        + '<div style="flex:1;display:flex;gap:1px">' + cells + '</div>';
+      caretEl.style.display = 'flex';
+    }
+  }
+
   if(isClima){
     const ranked = ZONAS
       .map(z => ({ z, maxMm: Math.max(...((z._climaRain) || [0])) }))
@@ -2546,7 +2564,7 @@ function renderHistory(){
     const bars = z.semanas.map((v,i) => {
       const c = v===2?'#e03020':v===1?'#e4c249':'rgba(255,255,255,0.08)';
       const bd = v===0?'border:1px solid rgba(255,255,255,0.1)':'';
-      const hl = i===wk?'outline:2px solid var(--aleph-yellow);outline-offset:2px;box-shadow:0 0 8px rgba(228,194,73,0.7);position:relative;z-index:2;':'';
+      const hl = i===wk?'outline:1px solid rgba(228,194,73,0.55);outline-offset:1px;':'';
       return '<div class="hist-bar" style="background:'+c+';'+bd+';'+hl+'" onclick="event.stopPropagation();jmpW('+i+')" title="'+fmtD(SEMANAS[i])+'"></div>';
     }).join('');
     return '<div class="hist-row"><div class="hist-name" onclick="clkZ('+z.cve+')">'+z.zm+'</div><div class="hist-bars">'+bars+'</div></div>';
