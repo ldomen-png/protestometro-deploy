@@ -839,6 +839,7 @@ canvas.wind-raster{
         </div>
         <div class="panel-body">
           <div class="section">
+            <div id="hist-current-week" style="font-size:12px;color:var(--aleph-yellow);font-weight:600;letter-spacing:0.04em;margin-bottom:6px;text-transform:uppercase;"></div>
             <div id="hist-intro" style="font-size:11px;color:rgba(255,255,255,0.6);line-height:1.5;margin-bottom:8px;">
               17 semanas monitoreadas, ordenadas por frecuencia. Click en barra para saltar a esa semana.
             </div>
@@ -2507,6 +2508,16 @@ function renderHistory(){
   const el = document.getElementById('hist-list');
   const isClima = (mode === 'clima');
 
+  const cwEl = document.getElementById('hist-current-week');
+  if(cwEl){
+    if(isClima){
+      cwEl.textContent = '';
+    } else {
+      const isCurrent = (wk === SEMANAS.length - 1);
+      cwEl.textContent = (isCurrent ? 'Esta semana · ' : 'Semana del ') + fmtD(SEMANAS[wk]);
+    }
+  }
+
   if(isClima){
     const ranked = ZONAS
       .map(z => ({ z, maxMm: Math.max(...((z._climaRain) || [0])) }))
@@ -2535,7 +2546,7 @@ function renderHistory(){
     const bars = z.semanas.map((v,i) => {
       const c = v===2?'#e03020':v===1?'#e4c249':'rgba(255,255,255,0.08)';
       const bd = v===0?'border:1px solid rgba(255,255,255,0.1)':'';
-      const hl = i===wk?'outline:2px solid var(--aleph-yellow);outline-offset:1px;box-shadow:0 0 6px rgba(228,194,73,0.5);':'';
+      const hl = i===wk?'outline:2px solid var(--aleph-yellow);outline-offset:2px;box-shadow:0 0 8px rgba(228,194,73,0.7);position:relative;z-index:2;':'';
       return '<div class="hist-bar" style="background:'+c+';'+bd+';'+hl+'" onclick="event.stopPropagation();jmpW('+i+')" title="'+fmtD(SEMANAS[i])+'"></div>';
     }).join('');
     return '<div class="hist-row"><div class="hist-name" onclick="clkZ('+z.cve+')">'+z.zm+'</div><div class="hist-bars">'+bars+'</div></div>';
