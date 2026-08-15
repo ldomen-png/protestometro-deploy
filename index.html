@@ -737,8 +737,8 @@ canvas.wind-raster{
       <div class="brand-product" id="brand-product">Protestómetro</div>
     </div>
     <div id="mode-toggle">
-      <button type="button" data-mode="protestas" class="on">Protestas</button>
-      <button type="button" data-mode="clima">Clima</button>
+      <button type="button" data-mode="protestas" class="on" aria-pressed="true">Protestas</button>
+      <button type="button" data-mode="clima" aria-pressed="false">Clima</button>
     </div>
     <div id="header-spacer"></div>
     <div id="hamburger" role="button" tabindex="0"><span></span></div>
@@ -809,7 +809,7 @@ canvas.wind-raster{
             <div class="hl-text" id="hl-text">—</div>
           </div>
           <div class="section">
-            <div class="section-t">Semana en análisis</div>
+            <div class="section-t" id="wnav-title">Semana en análisis</div>
             <div class="wnav">
               <div class="warr" data-week="prev" role="button" tabindex="0">◂</div>
               <div class="wlbl" id="wlbl-r">—</div>
@@ -863,7 +863,7 @@ canvas.wind-raster{
         </div>
         <div class="panel-body">
           <div class="section" style="padding-bottom:8px;">
-            <div style="font-size:11px;color:rgba(255,255,255,0.6);line-height:1.5;">
+            <div id="corr-intro" style="font-size:11px;color:rgba(255,255,255,0.6);line-height:1.5;">
               Carreteras federales que cruzan zonas en alerta esta semana. Ordenadas por número de zonas afectadas.
             </div>
           </div>
@@ -878,7 +878,7 @@ canvas.wind-raster{
           <div class="panel-close" data-close role="button" tabindex="0">✕</div>
         </div>
         <div class="panel-body">
-          <div class="section">
+          <div class="section" id="capas-protestas">
             <div class="field-row">
               <div>
                 <div class="field-label">Hexágonos de alerta</div>
@@ -886,6 +886,38 @@ canvas.wind-raster{
               </div>
               <div class="toggle on" data-tg="hex" role="button" tabindex="0"></div>
             </div>
+          </div>
+          <div class="section" id="capas-clima" style="display:none">
+            <div class="field-row">
+              <div>
+                <div class="field-label">Lluvia (malla nacional)</div>
+                <div class="field-sub">Precipitación acumulada del día · Open-Meteo</div>
+              </div>
+              <div class="toggle on" data-tg="rain" role="button" tabindex="0"></div>
+            </div>
+            <div class="field-row">
+              <div>
+                <div class="field-label">Viento (partículas)</div>
+                <div class="field-sub">Dirección dominante y velocidad máxima</div>
+              </div>
+              <div class="toggle on" data-tg="wind" role="button" tabindex="0" id="capas-wind-toggle"></div>
+            </div>
+            <div class="field-row">
+              <div>
+                <div class="field-label">Ciclones tropicales</div>
+                <div class="field-sub">Cono, trayectoria y avisos · NHC/NOAA</div>
+              </div>
+              <div class="toggle on" data-tg="cyclones" role="button" tabindex="0"></div>
+            </div>
+            <div class="field-row">
+              <div>
+                <div class="field-label">Sismos recientes</div>
+                <div class="field-sub">M4.5+ últimos 7 días · USGS</div>
+              </div>
+              <div class="toggle on" data-tg="quakes" role="button" tabindex="0"></div>
+            </div>
+          </div>
+          <div class="section">
             <div class="field-row">
               <div>
                 <div class="field-label">Etiquetas de zonas</div>
@@ -908,8 +940,8 @@ canvas.wind-raster{
       <div id="clima-loader" aria-hidden="true">
         <div class="cloader-card">
           <div class="cloader-pulse"></div>
-          <div class="cloader-title">CLÍMOMETRO</div>
-          <div class="cloader-sub">Pronóstico nacional · 7 días · Open-Meteo</div>
+          <div class="cloader-title">CLIMÓMETRO</div>
+          <div class="cloader-sub">Pronóstico nacional · 7 días · Open-Meteo + NHC + USGS</div>
           <div class="cloader-phase" id="cloader-phase">Conectando…</div>
           <div class="cloader-track"><div class="cloader-fill" id="cloader-fill"></div></div>
           <div class="cloader-meta">
@@ -944,8 +976,14 @@ canvas.wind-raster{
             <span class="cl-wind-key"><i style="background:#c81f10"></i>60+ km/h</span>
           </div>
         </div>
+        <div class="cl-row" id="cl-risk-row" style="margin-top:7px;align-items:center;display:none;">
+          <span class="cl-label">Riesgo</span>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;width:170px;">
+            <span class="cl-wind-key" id="cl-key-cyclone" style="display:none"><span style="color:#c81f10">◌</span>&nbsp;Cono ciclón (NHC)</span>
+            <span class="cl-wind-key" id="cl-key-quake" style="display:none"><span style="color:#7a4fd0">◉</span>&nbsp;Sismo M4.5+ (USGS)</span>
+          </div>
+        </div>
         <div id="clima-fresh" class="cl-fresh">—</div>
-        <div id="clima-debug" style="margin-top:4px;font-size:9px;color:rgba(255,255,255,0.40);font-family:monospace">—</div>
       </div>
       <!-- Mobile floating headline -->
       <div id="float-headline">
@@ -972,9 +1010,14 @@ canvas.wind-raster{
         </div>
         <div class="dops" id="clima-block" style="display:none">
           <div class="dops-t">Pronóstico del día</div>
+          <div class="dops-row"><span>Condición</span><span class="v" id="clmc">—</span></div>
           <div class="dops-row"><span>Precipitación</span><span class="v" id="clmr">—</span></div>
-          <div class="dops-row"><span>Viento máx</span><span class="v" id="clmw">—</span></div>
+          <div class="dops-row"><span>Prob. de lluvia</span><span class="v" id="clmp">—</span></div>
+          <div class="dops-row"><span>Viento / ráfagas</span><span class="v" id="clmw">—</span></div>
+          <div class="dops-row"><span>Temp. máxima</span><span class="v" id="clmt">—</span></div>
           <div class="dops-row"><span>Nivel logístico</span><span class="pattern" id="clmlvl">—</span></div>
+          <div id="clmwhy" style="font-size:10px;color:var(--text-dim);margin-top:4px;line-height:1.4"></div>
+          <div id="clmflood" style="display:none;margin-top:6px;padding:6px 8px;border-radius:4px;background:rgba(58,168,255,0.10);border:1px solid rgba(58,168,255,0.30);font-size:10px;color:#7cc0ff;line-height:1.4"></div>
         </div>
         <div class="dcorr">
           <div class="dcorr-t">
@@ -1069,11 +1112,19 @@ function buildHeadline(weekIdx, compact){
   const yel = ZONAS.filter(z=>z.semanas[weekIdx]===1).length;
   const d = computeDeltas(weekIdx);
   const affectedCorrIds = new Set();
-  act.forEach(z => { CORRIDORS.forEach(corr => { if(zmCorridorDistKm(z,corr) < PROXIMITY_KM) affectedCorrIds.add(corr.id); }); });
+  if(isClima && corridorClimaLevels){
+    CORRIDORS.forEach((corr, ci) => { if((corridorClimaLevels[ci][weekIdx]||0) > 0) affectedCorrIds.add(corr.id); });
+  } else {
+    act.forEach(z => { CORRIDORS.forEach(corr => { if(zmCorridorDistKm(z,corr) < PROXIMITY_KM) affectedCorrIds.add(corr.id); }); });
+  }
+  const activeStorms = isClima && riskFeeds.storms ? riskFeeds.storms.filter(stormNearMexico) : [];
 
   if(compact){
     // Mobile float: one-line summary with strong visual hierarchy.
-    if(act.length === 0) return '<span class="hl-num green">'+(isClima?'Sin clima adverso':'Sin alertas activas')+'</span>';
+    if(act.length === 0 && activeStorms.length === 0) return '<span class="hl-num green">'+(isClima?'Sin clima adverso':'Sin alertas activas')+'</span>';
+    if(act.length === 0 && activeStorms.length > 0){
+      return '<span class="hl-num red">'+activeStorms.length+'</span> ciclón'+(activeStorms.length>1?'es':'')+' activo'+(activeStorms.length>1?'s':'')+' cerca de México';
+    }
     let s = '<span class="hl-num red">'+act.length+'</span> zonas '+(isClima?'con clima adverso':'activas');
     if(weekIdx > 0){
       const parts = [];
@@ -1113,6 +1164,12 @@ function buildHeadline(weekIdx, compact){
     }
   }
 
+  // CYCLONES LINE (clima) — presente incluso con 0 zonas en alerta
+  if(activeStorms.length > 0){
+    const names = activeStorms.map(s => s.name.split(' ').pop()).join(', ');
+    html += '<div class="hl-secondary"><span class="hl-num red">'+activeStorms.length+'</span> ciclón'+(activeStorms.length>1?'es':'')+' tropical'+(activeStorms.length>1?'es':'')+' activo'+(activeStorms.length>1?'s':'')+' ('+names+') · fuente NHC.</div>';
+  }
+
   // DELTA SECTION (if not first period and any changes)
   if(weekIdx > 0){
     const totalChanges = d.new.length + d.up.length + d.down.length + d.cleared.length;
@@ -1145,7 +1202,7 @@ function currentWeekIdx(){
 }
 let wk = currentWeekIdx();
 let sel = null;
-let layerVis = {hex:true, corr:true, labels:true};
+let layerVis = {hex:true, corr:true, labels:true, rain:true, cyclones:true, quakes:true};
 let filterVis = {alert:true, historic:true, none:false};
 let corrTypeVis = {cuota:true, libre:true};
 let highlightedCorridors = new Set();
@@ -1156,6 +1213,9 @@ let weatherData = null;
 let weatherInflight = null;
 let corridorWeatherData = null;
 let corridorWeatherInflight = null;
+let corridorClimaLevels = null;   // [ci][dayIdx] → nivel 0/1/2 a lo largo del corredor
+let corridorClimaStats = null;    // [ci][dayIdx] → {rain, gust} máximos del corredor
+let riskFeeds = { storms:null, quakes:null, floodReady:false, inflight:null };
 let gridWeatherData = null;
 let gridWeatherInflight = null;
 let gridWeatherFetchedAt = null;
@@ -1167,8 +1227,32 @@ let mapReady = false;
 let hoverPopup = null;
 let savedProtestasSemanas = null;
 let savedProtestasDates = null;
-const CLIMA_THRESHOLDS = { yellowRain:5, redRain:30, yellowWind:40, redWind:60 };
+// Umbrales únicos de severidad — TODA la app (semáforo, tooltip, ticker,
+// corredores) deriva de esta tabla para que ningún número cuente una historia
+// distinta en dos lugares.
+const CLIMA_THRESHOLDS = {
+  yellowRain:5,  redRain:30,   // mm acumulados/día
+  yellowWind:40, redWind:60,   // viento sostenido máx km/h
+  yellowGust:60, redGust:85,   // ráfaga máx km/h
+  yellowHeat:42, redHeat:46    // temperatura máx °C
+};
 const CLIMA_SCALE = { rainNorm:40, windNorm:70 }; // mm and km/h that map to "max intensity"
+
+// WMO weather_code → etiqueta operativa. Solo los grupos que cambian una
+// decisión logística; el resto cae al bucket genérico.
+function wmoLabel(code){
+  if(code == null) return null;
+  if(code >= 95) return { label:'Tormenta eléctrica', icon:'⛈', severe:true };
+  if(code >= 85) return { label:'Chubascos de nieve', icon:'❄', severe:true };
+  if(code >= 80) return { label:'Chubascos', icon:'🌧', severe:false };
+  if(code >= 71) return { label:'Nieve', icon:'❄', severe:true };
+  if(code >= 66) return { label:'Lluvia helada', icon:'🌧', severe:true };
+  if(code >= 61) return { label:'Lluvia', icon:'🌧', severe:false };
+  if(code >= 51) return { label:'Llovizna', icon:'🌦', severe:false };
+  if(code >= 45) return { label:'Niebla', icon:'🌫', severe:true };
+  if(code >= 1)  return { label:'Nublado parcial', icon:'⛅', severe:false };
+  return { label:'Despejado', icon:'☀', severe:false };
+}
 // 1° step → 20 × 33 = 660 cells, fetched in 4 batches. Open-Meteo's
 // per-IP burst limit was wrecking 13-batch runs at 0.5°. Mapbox's
 // raster-resampling: linear interpolates between cells on the GPU, so
@@ -1353,10 +1437,32 @@ async function loadGridWeather(onProgress){
   return gridWeatherInflight;
 }
 
-function climaLevelFromDay(rainMm, windKmh){
-  if(rainMm > CLIMA_THRESHOLDS.redRain || windKmh > CLIMA_THRESHOLDS.redWind) return 2;
-  if(rainMm > CLIMA_THRESHOLDS.yellowRain || windKmh > CLIMA_THRESHOLDS.yellowWind) return 1;
-  return 0;
+// Scorer multi-variable del semáforo. Devuelve nivel 0/1/2 y la lista de
+// razones que lo dispararon — la atribución viaja hasta tooltip y detalle.
+function climaDayRisk(rainMm, windKmh, gustKmh, tmaxC, code){
+  const T = CLIMA_THRESHOLDS;
+  const reasons = [];
+  let level = 0;
+  const bump = (lvl, txt) => { if(lvl > level) level = lvl; reasons.push({ lvl, txt }); };
+  if(rainMm >= T.redRain) bump(2, rainMm.toFixed(0)+' mm de lluvia');
+  else if(rainMm >= T.yellowRain) bump(1, rainMm.toFixed(0)+' mm de lluvia');
+  if(windKmh >= T.redWind) bump(2, 'viento '+windKmh.toFixed(0)+' km/h');
+  else if(windKmh >= T.yellowWind) bump(1, 'viento '+windKmh.toFixed(0)+' km/h');
+  if(gustKmh != null){
+    if(gustKmh >= T.redGust) bump(2, 'ráfagas '+gustKmh.toFixed(0)+' km/h');
+    else if(gustKmh >= T.yellowGust) bump(1, 'ráfagas '+gustKmh.toFixed(0)+' km/h');
+  }
+  if(tmaxC != null){
+    if(tmaxC >= T.redHeat) bump(2, 'calor extremo '+tmaxC.toFixed(0)+'°C');
+    else if(tmaxC >= T.yellowHeat) bump(1, 'calor '+tmaxC.toFixed(0)+'°C');
+  }
+  const w = wmoLabel(code);
+  if(w && w.severe && level === 0) bump(1, w.label.toLowerCase());
+  reasons.sort((a,b) => b.lvl - a.lvl);
+  return { level, reasons: reasons.map(r => r.txt) };
+}
+function climaLevelFromDay(rainMm, windKmh, gustKmh, tmaxC, code){
+  return climaDayRisk(rainMm, windKmh, gustKmh, tmaxC, code).level;
 }
 function recomputeZMStats(){
   ZONAS.forEach(z => { z.alertas = z.semanas.filter(v=>v>0).length; z.max = Math.max(...z.semanas); });
@@ -1367,7 +1473,7 @@ function loadWeather(){
   const lats = ZONAS.map(z => z.lat).join(',');
   const lngs = ZONAS.map(z => z.lng).join(',');
   const url = 'https://api.open-meteo.com/v1/forecast?latitude='+lats+'&longitude='+lngs
-    +'&daily=precipitation_sum,wind_speed_10m_max,weather_code'
+    +'&daily=precipitation_sum,precipitation_probability_max,wind_speed_10m_max,wind_gusts_10m_max,temperature_2m_max,weather_code'
     +'&timezone=America%2FMexico_City&forecast_days=7';
   weatherInflight = fetch(url).then(r=>r.json()).then(data => {
     weatherData = Array.isArray(data) ? data : [data];
@@ -1385,7 +1491,7 @@ function loadCorridorWeather(){
   const lats = wpFlat.map(w => w.lat).join(',');
   const lngs = wpFlat.map(w => w.lng).join(',');
   const url = 'https://api.open-meteo.com/v1/forecast?latitude='+lats+'&longitude='+lngs
-    +'&daily=precipitation_sum,wind_speed_10m_max'
+    +'&daily=precipitation_sum,wind_speed_10m_max,wind_gusts_10m_max'
     +'&timezone=America%2FMexico_City&forecast_days=7';
   corridorWeatherInflight = fetch(url).then(r=>r.json()).then(data => {
     const arr = Array.isArray(data) ? data : [data];
@@ -1398,6 +1504,221 @@ function loadCorridorWeather(){
     return corridorWeatherData;
   }).catch(e => { console.warn('Corridor weather failed:', e); corridorWeatherInflight = null; return null; });
   return corridorWeatherInflight;
+}
+// Colapsa el pronóstico por waypoint a un nivel de semáforo por corredor/día,
+// tomando el peor punto de la ruta (una tormenta en un tramo cierra la ruta).
+function computeCorridorClimaLevels(){
+  if(!corridorWeatherData) return;
+  corridorClimaLevels = [];
+  corridorClimaStats = [];
+  CORRIDORS.forEach((c, ci) => {
+    const lvls = [], stats = [];
+    for(let di = 0; di < 7; di++){
+      let lvl = 0, maxRain = 0, maxGust = 0;
+      corridorWeatherData[ci].forEach(daily => {
+        if(!daily) return;
+        const rain = (daily.precipitation_sum||[])[di] || 0;
+        const wind = (daily.wind_speed_10m_max||[])[di] || 0;
+        const gust = (daily.wind_gusts_10m_max||[])[di];
+        const l = climaLevelFromDay(rain, wind, gust, null, null);
+        if(l > lvl) lvl = l;
+        if(rain > maxRain) maxRain = rain;
+        if(gust != null && gust > maxGust) maxGust = gust;
+      });
+      lvls.push(lvl);
+      stats.push({ rain: maxRain, gust: maxGust });
+    }
+    corridorClimaLevels.push(lvls);
+    corridorClimaStats.push(stats);
+  });
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// FUENTES DE RIESGO EXTERNAS (huracanes NHC · sismos USGS · crecidas GloFAS)
+// Todas con CORS abierto — verificadas contra cliente estático.
+// ════════════════════════════════════════════════════════════════════════
+// El MapServer del NHC publica cada tormenta activa en un "slot" fijo por
+// cuenca (AT1–AT5 Atlántico, EP1–EP5 Pacífico Este). Los IDs de capa siguen
+// un patrón regular: base + 26·slot, con Points/Track/Cone en +0/+1/+2.
+const NHC_BASE = 'https://mapservices.weather.noaa.gov/tropical/rest/services/tropical/NHC_tropical_weather/MapServer';
+const NHC_SLOTS = (() => {
+  const slots = [];
+  for(let i = 0; i < 5; i++){
+    slots.push({ bin:'AT'+(i+1), points:6+26*i,   track:7+26*i,   cone:8+26*i });
+    slots.push({ bin:'EP'+(i+1), points:136+26*i, track:137+26*i, cone:138+26*i });
+  }
+  return slots;
+})();
+const NHC_CACHE_KEY = 'climometro_nhc_v1';
+const NHC_CACHE_MS = 30 * 60 * 1000; // los avisos del NHC salen cada 3–6 h
+function nhcQueryUrl(layerId){
+  return NHC_BASE+'/'+layerId+'/query?where=1%3D1&outFields=*&f=geojson';
+}
+async function loadHurricanes(){
+  try {
+    const raw = sessionStorage.getItem(NHC_CACHE_KEY);
+    if(raw){
+      const obj = JSON.parse(raw);
+      if(Date.now() - obj.at < NHC_CACHE_MS) return obj.storms;
+    }
+  } catch(e){ /* ignore */ }
+  // Paso 1: sondear los 10 conos en paralelo (los slots vacíos regresan FC vacía).
+  const coneResults = await Promise.all(NHC_SLOTS.map(s =>
+    fetch(nhcQueryUrl(s.cone)).then(r => r.json()).then(fc => ({ slot:s, fc }))
+      .catch(() => ({ slot:s, fc:null }))
+  ));
+  const active = coneResults.filter(x => x.fc && x.fc.features && x.fc.features.length > 0);
+  // Paso 2: track + points solo para slots con tormenta.
+  const storms = [];
+  await Promise.all(active.map(async ({ slot, fc }) => {
+    const [trackFc, pointsFc] = await Promise.all([
+      fetch(nhcQueryUrl(slot.track)).then(r => r.json()).catch(() => null),
+      fetch(nhcQueryUrl(slot.points)).then(r => r.json()).catch(() => null)
+    ]);
+    const props = fc.features[0].properties || {};
+    const pts = (pointsFc && pointsFc.features) ? pointsFc.features : [];
+    const now = pts.find(p => p.properties && p.properties.tau === 0) || pts[0];
+    storms.push({
+      bin: slot.bin,
+      name: props.stormname || 'Ciclón',
+      type: props.stormtype || '',
+      advisory: props.advisnum || '',
+      cone: fc,
+      track: trackFc,
+      points: pointsFc,
+      // Posición e intensidad actuales (maxwind viene en nudos)
+      lat: now ? now.geometry.coordinates[1] : null,
+      lng: now ? now.geometry.coordinates[0] : null,
+      maxwindKt: now && now.properties ? now.properties.maxwind : null,
+      gustKt: now && now.properties ? now.properties.gust : null,
+      category: now && now.properties ? (now.properties.ssnum || 0) : 0,
+      devLabel: now && now.properties ? now.properties.tcdvlp : ''
+    });
+  }));
+  try { sessionStorage.setItem(NHC_CACHE_KEY, JSON.stringify({ at: Date.now(), storms })); }
+  catch(e){ /* quota — ignore */ }
+  return storms;
+}
+// Un ciclón "cerca de México" para headline/ticker: centro dentro de un bbox
+// ampliado alrededor del país (las capas del mapa se pintan todas).
+function stormNearMexico(s){
+  return s.lat != null && s.lat >= 8 && s.lat <= 36 && s.lng >= -125 && s.lng <= -80;
+}
+const ktToKmh = kt => kt == null ? null : Math.round(kt * 1.852);
+const STORM_TYPE_ES = { TD:'Depresión tropical', TS:'Tormenta tropical', HU:'Huracán', MH:'Huracán mayor', STD:'Depresión subtropical', STS:'Tormenta subtropical', PTC:'Ciclón post-tropical' };
+
+async function loadQuakes(){
+  // M4.5+ últimos 7 días dentro del bbox nacional — el umbral operativo:
+  // por debajo de eso no se interrumpe logística.
+  const end = new Date();
+  const start = new Date(end.getTime() - 7*24*3600*1000);
+  const iso = d => d.toISOString().slice(0,10);
+  const url = 'https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson'
+    +'&starttime='+iso(start)+'&minlatitude=14&maxlatitude=33&minlongitude=-118&maxlongitude=-86&minmagnitude=4.5&orderby=time';
+  try {
+    const r = await fetch(url);
+    if(!r.ok) throw new Error('USGS '+r.status);
+    return await r.json();
+  } catch(e){ console.warn('USGS quakes failed:', e); return null; }
+}
+
+async function loadFlood(){
+  // GloFAS (píxel ~5 km): señal de crecida = descarga máxima pronosticada vs
+  // la mediana de los últimos 31 días en el mismo píxel. No entra al semáforo
+  // (el píxel puede no caer sobre el río correcto) — es un aviso contextual.
+  const lats = ZONAS.map(z => z.lat).join(',');
+  const lngs = ZONAS.map(z => z.lng).join(',');
+  const url = 'https://flood-api.open-meteo.com/v1/flood?latitude='+lats+'&longitude='+lngs
+    +'&daily=river_discharge&past_days=31&forecast_days=7';
+  try {
+    const r = await fetch(url);
+    if(!r.ok) throw new Error('Flood API '+r.status);
+    const data = await r.json();
+    const arr = Array.isArray(data) ? data : [data];
+    arr.forEach((fc, i) => {
+      const z = ZONAS[i];
+      if(!fc || !fc.daily || !fc.daily.river_discharge) return;
+      const dis = fc.daily.river_discharge;
+      const past = dis.slice(0, 31).filter(v => v != null).sort((a,b) => a-b);
+      if(past.length < 10) return;
+      const median = past[Math.floor(past.length/2)];
+      const future = dis.slice(31).filter(v => v != null);
+      const fmax = Math.max(...future, 0);
+      // Señal solo con caudal real (>5 m³/s) y anomalía fuerte (≥2× mediana)
+      if(median > 0.5 && fmax > 5 && fmax / median >= 2){
+        z._floodRatio = fmax / median;
+        z._floodMax = fmax;
+      } else {
+        delete z._floodRatio; delete z._floodMax;
+      }
+    });
+    return true;
+  } catch(e){ console.warn('Flood signal failed:', e); return null; }
+}
+
+// Dispara las tres fuentes en paralelo sin bloquear el loader principal;
+// al llegar cada una refresca mapa y ticker.
+function loadRiskFeeds(){
+  if(riskFeeds.inflight) return riskFeeds.inflight;
+  riskFeeds.inflight = Promise.all([
+    loadHurricanes().then(storms => {
+      riskFeeds.storms = storms;
+      if(mapReady) refreshRiskLayers();
+      renderTicker();
+      if(mode === 'clima') renderAll();
+      return storms;
+    }).catch(e => { console.warn('NHC failed:', e); return null; }),
+    loadQuakes().then(q => {
+      riskFeeds.quakes = q;
+      if(mapReady) refreshRiskLayers();
+      renderTicker();
+      return q;
+    }),
+    loadFlood().then(ok => {
+      riskFeeds.floodReady = !!ok;
+      renderTicker();
+      if(sel && mode === 'clima') showDet(sel);
+      return ok;
+    })
+  ]).finally(() => { riskFeeds.inflight = null; });
+  return riskFeeds.inflight;
+}
+function hurricanesFC(kind){
+  const feats = [];
+  (riskFeeds.storms || []).forEach(s => {
+    const fc = s[kind];
+    if(fc && fc.features) fc.features.forEach(f => {
+      f.properties = f.properties || {};
+      f.properties._name = s.name;
+      f.properties._bin = s.bin;
+      feats.push(f);
+    });
+  });
+  return { type:'FeatureCollection', features: feats };
+}
+function quakesFC(){
+  if(!riskFeeds.quakes || !riskFeeds.quakes.features) return { type:'FeatureCollection', features: [] };
+  return riskFeeds.quakes;
+}
+function refreshRiskLayers(){
+  const showCy = mode === 'clima' && layerVis.cyclones;
+  const showQk = mode === 'clima' && layerVis.quakes;
+  // Leyenda: claves solo cuando la capa está encendida y hay datos reales.
+  const hasStorms = !!(riskFeeds.storms && riskFeeds.storms.length);
+  const hasQuakes = !!(riskFeeds.quakes && riskFeeds.quakes.features && riskFeeds.quakes.features.length);
+  const cyKey = document.getElementById('cl-key-cyclone');
+  if(cyKey) cyKey.style.display = (showCy && hasStorms) ? 'inline-flex' : 'none';
+  const qkKey = document.getElementById('cl-key-quake');
+  if(qkKey) qkKey.style.display = (showQk && hasQuakes) ? 'inline-flex' : 'none';
+  const rowEl = document.getElementById('cl-risk-row');
+  if(rowEl) rowEl.style.display = ((showCy && hasStorms) || (showQk && hasQuakes)) ? 'flex' : 'none';
+  if(!mapReady) return;
+  const coneSrc = map.getSource('hurr-cone');   if(coneSrc)  coneSrc.setData(hurricanesFC('cone'));
+  const trackSrc = map.getSource('hurr-track'); if(trackSrc) trackSrc.setData(hurricanesFC('track'));
+  const ptsSrc = map.getSource('hurr-points');  if(ptsSrc)   ptsSrc.setData(hurricanesFC('points'));
+  const qSrc = map.getSource('quakes');         if(qSrc)     qSrc.setData(quakesFC());
+  ['hurr-cone-fill','hurr-cone-line','hurr-track-line','hurr-points-circle','hurr-points-label'].forEach(id => setLayerVis(id, showCy));
+  ['quakes-circle','quakes-label'].forEach(id => setLayerVis(id, showQk));
 }
 function climaIntensityAt(rainMm, windKmh){
   const rainNorm = Math.min(1, (rainMm||0) / CLIMA_SCALE.rainNorm);
@@ -1417,21 +1738,21 @@ function updateClimaFreshness(){
 // Acknowledge → Inform → Estimate → Engage → Brand. The fact rotation makes
 // the 25-30 s wait feel like a methodology pitch rather than dead air.
 const CLIMA_FACTS = [
-  '13 lotes secuenciales a 800 ms · evita gatillar rate limits del free tier de Open-Meteo.',
-  '2,535 celdas a 0.5° de resolución · de Tijuana al norte a Tapachula al sur.',
-  'Modelo: ensemble ECMWF + GFS · actualizado cada hora por Open-Meteo.',
-  'Lluvia: precipitación acumulada diaria · Viento: velocidad máxima a 10 m + dirección dominante.',
+  '660 celdas de pronóstico · de Tijuana al norte a Tapachula al sur.',
+  'Modelos: ECMWF IFS 9 km + GFS 13 km + ICON · actualizados cada hora por Open-Meteo.',
+  'Lluvia, ráfagas, calor extremo y condición del cielo alimentan el semáforo logístico.',
+  'Ciclones tropicales en vivo: cono y trayectoria oficiales del NHC/NOAA, ambas cuencas.',
+  'Sismos M4.5+ de los últimos 7 días vía USGS · crecidas fluviales vía GloFAS (Copernicus).',
   'Interpolación bilineal en GPU · resampling lineal nativo de Mapbox GL JS.',
   'Hasta 1,400 partículas advectadas por el campo u/v en tiempo real.',
   'Aleph cruza este feed con el monitoreo semanal de protestas · una sola vista de riesgo operativo.',
-  '75 zonas metropolitanas · 418 municipios · 90 millones de habitantes en cobertura.',
-  '30 corredores federales monitoreados — 95D, 150D, 57D, 200, AN…'
+  '30 corredores federales con pronóstico propio punto a punto — 95D, 150D, 57D, 200, AN…'
 ];
 const climaLoader = {
   startedAt: 0,
   factIdx: 0,
   factTimer: null,
-  totalBatches: 13,
+  totalBatches: 4,
   show(){
     const el = document.getElementById('clima-loader');
     if(!el) return;
@@ -1496,7 +1817,9 @@ const climaLoader = {
 function toggleWindLayer(){
   windLayerEnabled = !windLayerEnabled;
   const btn = document.getElementById('wind-toggle');
-  if(btn){ btn.classList.toggle('on', windLayerEnabled); btn.textContent = windLayerEnabled ? 'ON' : 'OFF'; }
+  if(btn){ btn.classList.toggle('on', windLayerEnabled); btn.textContent = windLayerEnabled ? 'ON' : 'OFF'; btn.setAttribute('aria-pressed', String(windLayerEnabled)); }
+  const capasBtn = document.getElementById('capas-wind-toggle');
+  if(capasBtn){ capasBtn.classList.toggle('on', windLayerEnabled); capasBtn.setAttribute('aria-pressed', String(windLayerEnabled)); }
   if(!mapReady || mode !== 'clima') return;
   if(windLayerEnabled){
     WindOverlay.mount(map);
@@ -1700,7 +2023,10 @@ const WindOverlay = {
 };
 async function setMode(newMode){
   if(mode === newMode) return;
-  document.querySelectorAll('#mode-toggle button').forEach(b => b.classList.toggle('on', b.dataset.mode === newMode));
+  document.querySelectorAll('#mode-toggle button').forEach(b => {
+    b.classList.toggle('on', b.dataset.mode === newMode);
+    b.setAttribute('aria-pressed', String(b.dataset.mode === newMode));
+  });
   const brand = document.getElementById('brand-product');
   if(newMode === 'clima'){
     if(!savedProtestasSemanas){
@@ -1708,24 +2034,23 @@ async function setMode(newMode){
       savedProtestasDates = SEMANAS.slice();
     }
     mode = 'clima';
-    if(brand) brand.textContent = 'Clímometro';
+    if(brand) brand.textContent = 'Climómetro';
     document.getElementById('hl-text').innerHTML = '<div class="hl-secondary">Cargando pronóstico…</div>';
-    const dbg = (msg) => { const el = document.getElementById('clima-debug'); if(el) el.textContent = msg; };
-    dbg('Cargando zonas…');
     climaLoader.show();
     climaLoader.setPhase('Pronóstico de zonas metropolitanas');
-    // Sequence the fetches to avoid Open-Meteo rate limits when we hit it with
-    // many parallel batches.
-    const data = await loadWeather();
+    // ZMs y corredores viajan en paralelo (2 requests); la malla nacional va
+    // después para no pelear con el burst limit de Open-Meteo. Los feeds de
+    // riesgo (NHC, USGS, GloFAS) van a otros dominios y arrancan de inmediato.
+    loadRiskFeeds();
+    const [data] = await Promise.all([loadWeather(), loadCorridorWeather()]);
     if(!data){
       document.getElementById('hl-text').innerHTML = '<div class="hl-secondary" style="color:var(--red)">No se pudo cargar el pronóstico. Reintenta.</div>';
-      dbg('Error: no se pudo cargar zonas');
       climaLoader.setPhase('Error de red — reintenta');
       setTimeout(() => climaLoader.hide(), 1500);
       return;
     }
-    dbg('Zonas OK · cargando grid…');
-    climaLoader.setPhase('Cargando malla nacional · 13 lotes');
+    computeCorridorClimaLevels();
+    climaLoader.setPhase('Cargando malla nacional');
     const grid = await loadGridWeather((info) => {
       if(info.phase === 'cache'){
         climaLoader.setPhase('Pronóstico en caché · cargando');
@@ -1741,37 +2066,51 @@ async function setMode(newMode){
       }
     });
     if(!grid){
-      dbg('Error: fetch grid falló');
+      console.warn('Grid weather unavailable — raster layer stays empty');
     } else {
-      const totalCells = 39 * 65;
-      const coverage = Math.round((grid.length / totalCells) * 100);
-      const failed = grid._failedBatches || 0;
-      const total = grid._totalBatches || '?';
-      const sample = grid.filter(c => c.daily && c.daily.precipitation_sum).slice(0, 3).map(c => (c.daily.precipitation_sum[0]||0).toFixed(1));
-      dbg(grid.length+'/'+totalCells+' celdas ('+coverage+'%) · '+(total-failed)+'/'+total+' batches OK · mm hoy: '+sample.join(', '));
+      const totalCells = generateMexicoGrid().length;
+      console.log('Grid clima: '+grid.length+'/'+totalCells+' celdas ('+Math.round(grid.length/totalCells*100)+'%)');
     }
     if(mapReady){
       RainCanvasSource.setData(gridWeatherData);
-      setLayerVis('rain-raster', true);
+      setLayerVis('rain-raster', layerVis.rain);
       setLayerVis('corridor-base', true);
       setLayerVis('zonas-hex-fill', false);
       WindOverlay.setData(gridWeatherData);
       if(windLayerEnabled) WindOverlay.mount(map); else WindOverlay.unmount();
+      refreshRiskLayers();
     }
     ZONAS.forEach((z, i) => {
       const fc = data[i];
       if(!fc || !fc.daily){ z.semanas = [0,0,0,0,0,0,0]; return; }
       const rain = fc.daily.precipitation_sum || [];
       const wind = fc.daily.wind_speed_10m_max || [];
-      z.semanas = rain.map((r, di) => climaLevelFromDay(r||0, wind[di]||0));
+      const gust = fc.daily.wind_gusts_10m_max || [];
+      const tmax = fc.daily.temperature_2m_max || [];
+      const prob = fc.daily.precipitation_probability_max || [];
+      const code = fc.daily.weather_code || [];
+      const risks = rain.map((r, di) => climaDayRisk(r||0, wind[di]||0, gust[di], tmax[di], code[di]));
+      z.semanas = risks.map(x => x.level);
       z._climaRain = rain;
       z._climaWind = wind;
+      z._climaGust = gust;
+      z._climaTmax = tmax;
+      z._climaProb = prob;
+      z._climaCode = code;
+      z._climaReasons = risks.map(x => x.reasons);
     });
+    // Las fechas del pronóstico vienen de la API (zona horaria de CDMX) — no
+    // del reloj local del navegador, que puede estar en otro huso.
     SEMANAS.length = 0;
-    const today = new Date();
-    for(let i=0;i<7;i++){
-      const d = new Date(today); d.setDate(d.getDate()+i);
-      SEMANAS.push(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'));
+    const apiDays = (data[0] && data[0].daily && data[0].daily.time) ? data[0].daily.time : [];
+    if(apiDays.length >= 7){
+      apiDays.slice(0,7).forEach(d => SEMANAS.push(d));
+    } else {
+      const today = new Date();
+      for(let i=0;i<7;i++){
+        const d = new Date(today); d.setDate(d.getDate()+i);
+        SEMANAS.push(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'));
+      }
     }
     wk = 0;
   } else {
@@ -1782,9 +2121,13 @@ async function setMode(newMode){
       setLayerVis('corridor-base', true);
       setLayerVis('zonas-hex-fill', true);
       WindOverlay.unmount();
+      refreshRiskLayers();
     }
     if(savedProtestasSemanas){
-      ZONAS.forEach((z, i) => { z.semanas = savedProtestasSemanas[i]; delete z._climaRain; delete z._climaWind; });
+      ZONAS.forEach((z, i) => {
+        z.semanas = savedProtestasSemanas[i];
+        ['_climaRain','_climaWind','_climaGust','_climaTmax','_climaProb','_climaCode','_climaReasons'].forEach(k => delete z[k]);
+      });
       SEMANAS.length = 0;
       savedProtestasDates.forEach(s => SEMANAS.push(s));
       wk = currentWeekIdx();
@@ -1864,38 +2207,88 @@ function buildTickerItems(){
       }
     });
   }
-  // ─── Clima: severe rain / wind forecasts in next 7 days ──────────────
+  // ─── Clima: lluvia/ráfagas severas próximos 7 días (mismos umbrales que el semáforo) ──
+  const dayPhrase = (i) => i===0 ? 'hoy' : i===1 ? 'mañana' : ('en '+i+' días');
   if(weatherData){
-    const dayPhrase = (i) => i===0 ? 'hoy' : i===1 ? 'mañana' : ('en '+i+' días');
+    const T = CLIMA_THRESHOLDS;
     ZONAS.forEach((z, i) => {
       const fc = weatherData[i];
       if(!fc || !fc.daily) return;
       const rain = fc.daily.precipitation_sum || [];
-      const wind = fc.daily.wind_speed_10m_max || [];
-      // Find peak rain day above threshold
+      const gust = fc.daily.wind_gusts_10m_max || [];
+      const tmaxArr = fc.daily.temperature_2m_max || [];
       let maxRain = 0, maxRainIdx = -1;
       rain.forEach((r, di) => { if(r > maxRain){ maxRain = r; maxRainIdx = di; }});
-      if(maxRain > 25){
+      if(maxRain >= T.redRain){
         items.push({
           cve: z.cve,
-          tone: maxRain > 40 ? 'red' : 'blue',
+          tone: maxRain >= T.redRain * 1.5 ? 'red' : 'blue',
           icon: '⛆',
           loc: z.zm.toUpperCase(),
           detail: maxRain.toFixed(0)+'mm lluvia esperada '+dayPhrase(maxRainIdx)
         });
       }
-      // Find peak wind
-      let maxWind = 0, maxWindIdx = -1;
-      wind.forEach((w, di) => { if(w > maxWind){ maxWind = w; maxWindIdx = di; }});
-      if(maxWind > 55){
+      let maxGust = 0, maxGustIdx = -1;
+      gust.forEach((w, di) => { if(w > maxGust){ maxGust = w; maxGustIdx = di; }});
+      if(maxGust >= T.redGust){
         items.push({
           cve: z.cve,
           tone: 'orange',
           icon: '↯',
           loc: z.zm.toUpperCase(),
-          detail: 'Viento '+maxWind.toFixed(0)+' km/h '+dayPhrase(maxWindIdx)
+          detail: 'Ráfagas '+maxGust.toFixed(0)+' km/h '+dayPhrase(maxGustIdx)
         });
       }
+      let maxT = -99, maxTIdx = -1;
+      tmaxArr.forEach((t, di) => { if(t != null && t > maxT){ maxT = t; maxTIdx = di; }});
+      if(maxT >= T.redHeat){
+        items.push({
+          cve: z.cve,
+          tone: 'orange',
+          icon: '☀',
+          loc: z.zm.toUpperCase(),
+          detail: 'Calor extremo '+maxT.toFixed(0)+'°C '+dayPhrase(maxTIdx)
+        });
+      }
+    });
+  }
+  // ─── Ciclones tropicales activos (NHC) ───────────────────────────────
+  if(riskFeeds.storms){
+    riskFeeds.storms.filter(stormNearMexico).forEach(s => {
+      const wind = ktToKmh(s.maxwindKt);
+      items.push({
+        cve: null,
+        tone: 'red',
+        icon: '🌀',
+        loc: (STORM_TYPE_ES[s.type] || s.devLabel || 'Ciclón').toUpperCase()+' '+s.name.split(' ').pop().toUpperCase(),
+        detail: (wind ? 'Viento '+wind+' km/h · ' : '')+'aviso #'+s.advisory+' NHC'
+      });
+    });
+  }
+  // ─── Sismos M5+ últimos 7 días (USGS) ────────────────────────────────
+  if(riskFeeds.quakes && riskFeeds.quakes.features){
+    riskFeeds.quakes.features.filter(f => (f.properties.mag||0) >= 5).slice(0, 5).forEach(f => {
+      const p = f.properties;
+      const ago = p.time ? Math.round((Date.now() - p.time) / 3600000) : null;
+      items.push({
+        cve: null,
+        tone: p.mag >= 6 ? 'red' : 'orange',
+        icon: '◉',
+        loc: 'SISMO M'+p.mag.toFixed(1),
+        detail: (p.place || '')+(ago != null ? ' · hace '+(ago < 1 ? '<1' : ago)+' h' : '')
+      });
+    });
+  }
+  // ─── Crecidas fluviales (GloFAS) ─────────────────────────────────────
+  if(riskFeeds.floodReady){
+    ZONAS.filter(z => z._floodRatio).forEach(z => {
+      items.push({
+        cve: z.cve,
+        tone: 'blue',
+        icon: '≋',
+        loc: z.zm.toUpperCase(),
+        detail: 'Crecida fluvial: '+z._floodRatio.toFixed(1)+'× la mediana mensual'
+      });
     });
   }
   return items;
@@ -1911,7 +2304,7 @@ function renderTicker(){
     return;
   }
   const html = items.map(it =>
-    '<div class="ticker-item ti-'+it.tone+'" onclick="clkZ('+it.cve+')">'
+    '<div class="ticker-item ti-'+it.tone+'"'+(it.cve != null ? ' onclick="clkZ('+it.cve+')"' : '')+'>'
     +'<span class="ti-icon">'+it.icon+'</span>'
     +'<span class="ti-loc">'+it.loc+'</span>'
     +'<span class="ti-detail">'+it.detail+'</span>'
@@ -1942,6 +2335,27 @@ function animateTicker(){
   el.addEventListener('mouseleave', () => { tickerState.paused = false; });
 })();
 
+// ── Accesibilidad ───────────────────────────────────────────────────────
+// Enter/Espacio activan cualquier control con role="button" — los toggles y
+// el rail son divs enfocables que sin esto no responden al teclado.
+document.addEventListener('keydown', (e) => {
+  if((e.key === 'Enter' || e.key === ' ') && e.target && e.target.matches && e.target.matches('[role="button"]')){
+    e.preventDefault();
+    e.target.click();
+  }
+});
+// Respeta la preferencia de movimiento reducido: sin partículas de viento y
+// con el ticker estático (el contenido sigue visible, no se anima).
+const REDUCED_MOTION = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+if(REDUCED_MOTION){
+  windLayerEnabled = false;
+  tickerState.paused = true;
+  const wb = document.getElementById('wind-toggle');
+  if(wb){ wb.classList.remove('on'); wb.textContent = 'OFF'; }
+  const cb = document.getElementById('capas-wind-toggle');
+  if(cb) cb.classList.remove('on');
+}
+
 function applyHistoricoCopy(){
   const isClima = (mode === 'clima');
   const title = document.getElementById('hist-title');
@@ -1950,6 +2364,16 @@ function applyHistoricoCopy(){
   if(intro) intro.textContent = isClima
     ? '7 días de pronóstico por zona, ordenadas por lluvia máxima. Click en barra para saltar a ese día.'
     : 'Predicción semanal de afectaciones por protestas. Cada columna es la predicción para esa semana, con histórico de 18 semanas. Click en barra para saltar a otra semana.';
+  const corrIntro = document.getElementById('corr-intro');
+  if(corrIntro) corrIntro.textContent = isClima
+    ? 'Carreteras federales con clima adverso pronosticado en algún tramo de la ruta este día. El nivel toma el peor punto del recorrido.'
+    : 'Carreteras federales que cruzan zonas en alerta esta semana. Ordenadas por número de zonas afectadas.';
+  const capasP = document.getElementById('capas-protestas');
+  if(capasP) capasP.style.display = isClima ? 'none' : 'block';
+  const capasC = document.getElementById('capas-clima');
+  if(capasC) capasC.style.display = isClima ? 'block' : 'none';
+  const wnavT = document.getElementById('wnav-title');
+  if(wnavT) wnavT.textContent = isClima ? 'Día en análisis' : 'Semana en análisis';
 
   const histLegend = document.getElementById('hist-legend');
   if(histLegend){
@@ -2107,8 +2531,15 @@ document.querySelectorAll('[data-tg]').forEach(t => {
   t.addEventListener('click', (e) => {
     e.stopPropagation();
     const layer = t.dataset.tg;
+    if(layer === 'wind'){ toggleWindLayer(); return; }
     layerVis[layer] = !layerVis[layer];
     t.classList.toggle('on', layerVis[layer]);
+    t.setAttribute('aria-pressed', String(layerVis[layer]));
+    if(layer === 'cyclones' || layer === 'quakes'){ refreshRiskLayers(); return; }
+    if(layer === 'rain'){
+      if(mapReady && mode === 'clima') setLayerVis('rain-raster', layerVis.rain);
+      return;
+    }
     if(map) refreshMap();
   });
 });
@@ -2169,7 +2600,7 @@ function lvlMeta(n){
   if(mode === 'clima'){
     if(n===2)return['DISRUPCIÓN ALTA','#e03020','rgba(224,48,32,0.18)'];
     if(n===1)return['RETRASOS PROBABLES','#e4c249','rgba(228,194,73,0.18)'];
-    return['SIN AFECTACIÓN','#3ecf6e','rgba(62,207,110,0.12)'];
+    return['SIN AFECTACIÓN PREVISTA','#3ecf6e','rgba(62,207,110,0.12)'];
   }
   if(n===2)return['NIVEL 2 — ROJO','#e03020','rgba(224,48,32,0.18)'];
   if(n===1)return['NIVEL 1 — AMARILLO','#e4c249','rgba(228,194,73,0.18)'];
@@ -2177,20 +2608,20 @@ function lvlMeta(n){
 }
 function buildTooltipHTML(z){
   if(mode === 'clima'){
-    const rain = (z._climaRain && z._climaRain[wk] != null) ? z._climaRain[wk] : null;
-    const wind = (z._climaWind && z._climaWind[wk] != null) ? z._climaWind[wk] : null;
-    const { intensity, useWind } = climaIntensityAt(rain||0, wind||0);
-    const climaLbl = intensity >= 0.75 ? 'Disrupción alta'
-                   : intensity >= 0.35 ? 'Retrasos probables'
-                   : intensity >= 0.05 ? 'Afectación menor'
-                   : 'Sin afectación';
-    const col = intensity < 0.05 ? '#3ecf6e' : (useWind ? '#ff9530' : '#3aa8ff');
-    const detail = [
-      rain!=null ? rain.toFixed(1)+' mm lluvia' : null,
-      wind!=null ? wind.toFixed(0)+' km/h viento' : null
-    ].filter(Boolean).join(' · ');
+    // Mismo nivel y mismos colores que el semáforo — una sola escala en toda la app.
+    const lvl = z.semanas[wk] || 0;
+    const [lbl, col] = lvlMeta(lvl);
+    const reasons = (z._climaReasons && z._climaReasons[wk]) || [];
+    const pick = arr => (arr && arr[wk] != null) ? arr[wk] : null;
+    const rain = pick(z._climaRain), gust = pick(z._climaGust);
+    const w = wmoLabel(pick(z._climaCode));
+    const detail = reasons.length ? reasons.join(' · ')
+      : [w ? w.label : null,
+         rain != null ? rain.toFixed(1)+' mm' : null,
+         gust != null ? 'ráfagas '+gust.toFixed(0)+' km/h' : null
+        ].filter(Boolean).join(' · ');
     return '<div class="tn">'+z.zm+'</div><div class="ts">'+z.estado+'</div>'
-      + '<div class="tl" style="color:'+col+'">'+climaLbl.toUpperCase()+'</div>'
+      + '<div class="tl" style="color:'+col+'">'+lbl+'</div>'
       + '<div class="ti">'+detail+'</div>';
   }
   const n=z.semanas[wk],[lbl,col]=lvlMeta(n);
@@ -2272,7 +2703,7 @@ function zonasHexFC(){
 function corridorsFC(){
   return {
     type: 'FeatureCollection',
-    features: CORRIDORS.map(c => {
+    features: CORRIDORS.map((c, ci) => {
       let weekLevel = 0;
       if(mode === 'protestas'){
         for(const z of ZONAS){
@@ -2282,6 +2713,8 @@ function corridorsFC(){
             if(weekLevel === 2) break;
           }
         }
+      } else if(corridorClimaLevels && corridorClimaLevels[ci]){
+        weekLevel = corridorClimaLevels[ci][wk] || 0;
       }
       return {
         type: 'Feature',
@@ -2365,23 +2798,41 @@ function showDet(z){
     const hl = i===wk?'outline:2px solid var(--aleph-yellow);outline-offset:1px;box-shadow:0 0 6px rgba(228,194,73,0.5);':'';
     return '<div class="dbar" style="height:'+h+'px;background:'+c+';'+hl+'"></div>';
   }).join('');
-  const p = computePatterns(z);
-  document.getElementById('opf').textContent = p.freq + ' de las semanas';
-  document.getElementById('opp').textContent = p.pattern;
-  document.getElementById('opc').textContent = p.consecutive;
   const isClima = (mode === 'clima');
+  if(!isClima){
+    const p = computePatterns(z);
+    document.getElementById('opf').textContent = p.freq + ' de las semanas';
+    document.getElementById('opp').textContent = p.pattern;
+    document.getElementById('opc').textContent = p.consecutive;
+  }
   document.getElementById('dops-block').style.display = isClima ? 'none' : 'block';
   const climaBlock = document.getElementById('clima-block');
   climaBlock.style.display = isClima ? 'block' : 'none';
   if(isClima){
-    const rain = (z._climaRain && z._climaRain[wk] != null) ? z._climaRain[wk] : null;
-    const wind = (z._climaWind && z._climaWind[wk] != null) ? z._climaWind[wk] : null;
+    const pick = arr => (arr && arr[wk] != null) ? arr[wk] : null;
+    const rain = pick(z._climaRain), wind = pick(z._climaWind), gust = pick(z._climaGust);
+    const tmax = pick(z._climaTmax), prob = pick(z._climaProb), code = pick(z._climaCode);
+    const w = wmoLabel(code);
+    document.getElementById('clmc').textContent = w ? (w.icon+' '+w.label) : '—';
     document.getElementById('clmr').textContent = rain != null ? (rain.toFixed(1)+' mm') : '—';
-    document.getElementById('clmw').textContent = wind != null ? (wind.toFixed(0)+' km/h') : '—';
-    const lvlTxt = n===2 ? 'Disrupción alta' : n===1 ? 'Retrasos probables' : 'Sin afectación';
+    document.getElementById('clmp').textContent = prob != null ? (prob.toFixed(0)+' %') : '—';
+    document.getElementById('clmw').textContent = wind != null
+      ? (wind.toFixed(0) + (gust != null ? ' / '+gust.toFixed(0) : '') + ' km/h') : '—';
+    document.getElementById('clmt').textContent = tmax != null ? (tmax.toFixed(0)+' °C') : '—';
+    const lvlTxt = n===2 ? 'Disrupción alta' : n===1 ? 'Retrasos probables' : 'Sin afectación prevista';
     const lvlEl = document.getElementById('clmlvl');
     lvlEl.textContent = lvlTxt;
     lvlEl.style.color = col;
+    const reasons = (z._climaReasons && z._climaReasons[wk]) || [];
+    document.getElementById('clmwhy').textContent = reasons.length ? ('Motivo: '+reasons.join(' · ')) : '';
+    const floodEl = document.getElementById('clmflood');
+    if(z._floodRatio){
+      floodEl.style.display = 'block';
+      floodEl.textContent = '⚠ Crecida fluvial: descarga pronosticada '
+        + z._floodRatio.toFixed(1) + '× la mediana del último mes (GloFAS). Vigilar vados y pasos bajos.';
+    } else {
+      floodEl.style.display = 'none';
+    }
   }
   const nearby = corridorsNearZM(z, 80);
   const corrEl = document.getElementById('dcorr-list');
@@ -2416,7 +2867,7 @@ function showDet(z){
 // ════════════════════════════════════════════════════════════════════════
 function renderAll(){
   const ds = fmtD(SEMANAS[wk]);
-  const isCurrent = (mode === 'clima') ? (wk === SEMANAS.length-1) : (wk === currentWeekIdx());
+  const isCurrent = (mode === 'clima') ? (wk === 0) : (wk === currentWeekIdx());
   const isClima = (mode === 'clima');
   const climaDayLabels = ['HOY','MAÑANA','+2 DÍAS','+3 DÍAS','+4 DÍAS','+5 DÍAS','+6 DÍAS'];
   const periodPrefix = isClima
@@ -2595,6 +3046,42 @@ function renderHistory(){
 function renderCorridors(){
   const el = document.getElementById('corr-list');
   if(!el) return;
+  if(mode === 'clima'){
+    // Corredores rankeados por su propio pronóstico (peor punto de la ruta).
+    if(!corridorClimaLevels){
+      el.innerHTML = '<div style="padding:16px;font-size:12px;color:var(--text-dim);font-style:italic;text-align:center;">Cargando pronóstico de corredores…</div>';
+      return;
+    }
+    const ranked = CORRIDORS.map((c, ci) => ({
+      corr: c,
+      lvl: corridorClimaLevels[ci][wk] || 0,
+      stats: corridorClimaStats[ci][wk] || { rain:0, gust:0 }
+    })).filter(x => x.lvl > 0)
+      .sort((a,b) => b.lvl - a.lvl || b.stats.rain - a.stats.rain || b.stats.gust - a.stats.gust);
+    if(ranked.length === 0){
+      el.innerHTML = '<div style="padding:16px;font-size:12px;color:var(--text-dim);font-style:italic;text-align:center;">Sin corredores con clima adverso este día</div>';
+      return;
+    }
+    el.innerHTML = ranked.map(x => {
+      const c = x.corr;
+      const levelBadge = x.lvl === 2
+        ? '<span class="corr-badge red">DISRUPCIÓN</span>'
+        : '<span class="corr-badge yellow">RETRASOS</span>';
+      const typeBadge = '<span class="corr-type '+c.type+'">'+(c.type === 'cuota' ? 'CUOTA' : 'LIBRE')+'</span>';
+      const detail = [
+        x.stats.rain >= 1 ? x.stats.rain.toFixed(0)+' mm lluvia máx' : null,
+        x.stats.gust >= 30 ? 'ráfagas '+x.stats.gust.toFixed(0)+' km/h' : null
+      ].filter(Boolean).join(' · ') || 'condición adversa en ruta';
+      return '<div class="corr-row">' +
+        '<div class="corr-row-top">' +
+          '<span class="corr-id">'+c.id+'</span>' + typeBadge + levelBadge +
+        '</div>' +
+        '<div class="corr-name">'+c.name+'</div>' +
+        '<div style="font-size:10px;color:var(--text-dim)">'+detail+'</div>' +
+      '</div>';
+    }).join('');
+    return;
+  }
   // For each corridor, count how many ZMs in alert this week it crosses
   const act = ZONAS.filter(z => z.semanas[wk] > 0);
   const corrAffected = CORRIDORS.map(c => {
@@ -2680,6 +3167,10 @@ try {
     map.addSource('zonas-hex', { type:'geojson', data: zonasHexFC() });
     map.addSource('zonas', { type:'geojson', data: zonasFC() });
     map.addSource('selection', { type:'geojson', data: selectionFC() });
+    map.addSource('hurr-cone',   { type:'geojson', data: hurricanesFC('cone') });
+    map.addSource('hurr-track',  { type:'geojson', data: hurricanesFC('track') });
+    map.addSource('hurr-points', { type:'geojson', data: hurricanesFC('points') });
+    map.addSource('quakes',      { type:'geojson', data: quakesFC() });
 
     // ── Layers (bottom → top) ─────────────────────────────────────────────
     // Insert above the basemap roads label layer so our labels render on top.
@@ -2781,6 +3272,88 @@ try {
       }
     });
 
+    // ── Capas de riesgo externo (solo modo clima) ─────────────────────────
+    // Cono de incertidumbre NHC: relleno tenue + borde, debajo de labels.
+    map.addLayer({
+      id: 'hurr-cone-fill', type: 'fill', source: 'hurr-cone',
+      layout: { visibility: 'none' },
+      paint: { 'fill-color': '#e03020', 'fill-opacity': 0.08 }
+    }, firstSymbolLayer);
+    map.addLayer({
+      id: 'hurr-cone-line', type: 'line', source: 'hurr-cone',
+      layout: { visibility: 'none' },
+      paint: { 'line-color': '#c81f10', 'line-width': 1.4, 'line-opacity': 0.6, 'line-dasharray': [2,2] }
+    }, firstSymbolLayer);
+    map.addLayer({
+      id: 'hurr-track-line', type: 'line', source: 'hurr-track',
+      layout: { visibility: 'none', 'line-cap':'round', 'line-join':'round' },
+      paint: { 'line-color': '#c81f10', 'line-width': 2.2, 'line-opacity': 0.85 }
+    }, firstSymbolLayer);
+    map.addLayer({
+      id: 'hurr-points-circle', type: 'circle', source: 'hurr-points',
+      layout: { visibility: 'none' },
+      paint: {
+        'circle-radius': ['case', ['==', ['get','tau'], 0], 7, 4.5],
+        'circle-color': ['case',
+          ['>=', ['coalesce', ['get','ssnum'], 0], 3], '#c81f10',
+          ['>=', ['coalesce', ['get','ssnum'], 0], 1], '#ff9530',
+          '#e4c249'
+        ],
+        'circle-opacity': 0.92,
+        'circle-stroke-color': '#fff',
+        'circle-stroke-width': 1.4
+      }
+    });
+    map.addLayer({
+      id: 'hurr-points-label', type: 'symbol', source: 'hurr-points',
+      layout: {
+        visibility: 'none',
+        'text-field': ['case', ['==', ['get','tau'], 0],
+          ['get','stormname'],
+          ['get','datelbl']
+        ],
+        'text-font': ['Open Sans Semibold', 'Arial Unicode MS Bold'],
+        'text-size': ['case', ['==', ['get','tau'], 0], 12, 9],
+        'text-offset': [0, 1.3],
+        'text-anchor': 'top',
+        'text-allow-overlap': false
+      },
+      paint: {
+        'text-color': '#c81f10',
+        'text-halo-color': 'rgba(255,255,255,0.95)',
+        'text-halo-width': 2
+      }
+    });
+    // Sismos USGS M4.5+ últimos 7 días — radio por magnitud.
+    map.addLayer({
+      id: 'quakes-circle', type: 'circle', source: 'quakes',
+      layout: { visibility: 'none' },
+      paint: {
+        'circle-radius': ['interpolate', ['linear'], ['coalesce', ['get','mag'], 4.5], 4.5, 4, 6, 9, 7.5, 18],
+        'circle-color': '#7a4fd0',
+        'circle-opacity': 0.35,
+        'circle-stroke-color': '#7a4fd0',
+        'circle-stroke-width': 1.4
+      }
+    });
+    map.addLayer({
+      id: 'quakes-label', type: 'symbol', source: 'quakes',
+      layout: {
+        visibility: 'none',
+        'text-field': ['concat', 'M', ['to-string', ['get','mag']]],
+        'text-font': ['Open Sans Semibold', 'Arial Unicode MS Bold'],
+        'text-size': 9,
+        'text-offset': [0, 1.2],
+        'text-anchor': 'top',
+        'text-allow-overlap': false
+      },
+      paint: {
+        'text-color': '#5a3aa8',
+        'text-halo-color': 'rgba(255,255,255,0.95)',
+        'text-halo-width': 2
+      }
+    });
+
     // Selection ring — single dark ring around the selected ZM (visible on light bg).
     map.addLayer({
       id: 'selection-ring',
@@ -2815,8 +3388,34 @@ try {
       map.on('click', id, onClick);
     });
 
+    // Tooltips de riesgo externo (huracanes y sismos)
+    map.on('mouseenter', 'hurr-points-circle', (e) => {
+      map.getCanvas().style.cursor = 'pointer';
+      const p = e.features[0].properties;
+      const wind = ktToKmh(p.maxwind), gust = ktToKmh(p.gust);
+      const cat = (p.ssnum && p.ssnum > 0) ? 'Huracán cat. '+p.ssnum : (STORM_TYPE_ES[p.stormtype] || p.tcdvlp || 'Ciclón tropical');
+      const html = '<div class="tn">'+(p.stormname || p._name || 'Ciclón')+'</div>'
+        + '<div class="ts">'+(p.datelbl || '')+'</div>'
+        + '<div class="tl" style="color:#c81f10">'+cat.toUpperCase()+'</div>'
+        + '<div class="ti">'+(wind ? 'Viento '+wind+' km/h' : '')+(gust ? ' · ráfagas '+gust+' km/h' : '')+'</div>';
+      hoverPopup.setLngLat(e.lngLat).setHTML(html).addTo(map);
+    });
+    map.on('mouseleave', 'hurr-points-circle', hoverOut);
+    map.on('mouseenter', 'quakes-circle', (e) => {
+      map.getCanvas().style.cursor = 'pointer';
+      const p = e.features[0].properties;
+      const when = p.time ? new Date(+p.time) : null;
+      const ago = when ? Math.round((Date.now() - when.getTime()) / 3600000) : null;
+      const html = '<div class="tn">Sismo M'+(p.mag != null ? (+p.mag).toFixed(1) : '?')+'</div>'
+        + '<div class="ts">'+(p.place || '')+'</div>'
+        + '<div class="ti">'+(ago != null ? (ago < 1 ? 'Hace menos de 1 h' : 'Hace '+ago+' h') : '')+' · USGS</div>';
+      hoverPopup.setLngLat(e.lngLat).setHTML(html).addTo(map);
+    });
+    map.on('mouseleave', 'quakes-circle', hoverOut);
+
     mapReady = true;
     refreshMap();
+    refreshRiskLayers();
     setTimeout(() => map.resize(), 100);
     setTimeout(() => map.resize(), 500);
   });
