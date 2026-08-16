@@ -916,6 +916,20 @@ canvas.wind-raster{
               </div>
               <div class="toggle on" data-tg="quakes" role="button" tabindex="0"></div>
             </div>
+            <div class="field-row">
+              <div>
+                <div class="field-label">Inundación histórica</div>
+                <div class="field-sub">Peligro municipal Medio–Muy alto · CENAPRED 2016</div>
+              </div>
+              <div class="toggle" data-tg="histflood" role="button" tabindex="0"></div>
+            </div>
+            <div class="field-row">
+              <div>
+                <div class="field-label">Huracanes históricos</div>
+                <div class="field-sub">Trayectorias cat. 3+ · 1980–2025 · HURDAT2 NOAA</div>
+              </div>
+              <div class="toggle" data-tg="histtracks" role="button" tabindex="0"></div>
+            </div>
           </div>
           <div class="section">
             <div class="field-row">
@@ -981,6 +995,13 @@ canvas.wind-raster{
           <div style="display:flex;gap:10px;flex-wrap:wrap;width:170px;">
             <span class="cl-wind-key" id="cl-key-cyclone" style="display:none"><span style="color:#c81f10">◌</span>&nbsp;Cono ciclón (NHC)</span>
             <span class="cl-wind-key" id="cl-key-quake" style="display:none"><span style="color:#7a4fd0">◉</span>&nbsp;Sismo M4.5+ (USGS)</span>
+          </div>
+        </div>
+        <div class="cl-row" id="cl-hist-row" style="margin-top:7px;align-items:center;display:none;">
+          <span class="cl-label">Hist.</span>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;width:170px;">
+            <span class="cl-wind-key" id="cl-key-histflood" style="display:none"><i style="background:#ff9530"></i>&nbsp;Peligro inundación</span>
+            <span class="cl-wind-key" id="cl-key-histtracks" style="display:none"><i style="background:#c81f10"></i>&nbsp;Huracanes cat. 3+ (1980–2025)</span>
           </div>
         </div>
         <div id="clima-fresh" class="cl-fresh">—</div>
@@ -1202,7 +1223,7 @@ function currentWeekIdx(){
 }
 let wk = currentWeekIdx();
 let sel = null;
-let layerVis = {hex:true, corr:true, labels:true, rain:true, cyclones:true, quakes:true};
+let layerVis = {hex:true, corr:true, labels:true, rain:true, cyclones:true, quakes:true, histflood:false, histtracks:false};
 let filterVis = {alert:true, historic:true, none:false};
 let corrTypeVis = {cuota:true, libre:true};
 let highlightedCorridors = new Set();
@@ -1700,6 +1721,120 @@ function quakesFC(){
   if(!riskFeeds.quakes || !riskFeeds.quakes.features) return { type:'FeatureCollection', features: [] };
   return riskFeeds.quakes;
 }
+// ── Capas históricas estáticas (lazy-load desde /data) ──────────────────
+// inundacion.json: índice de peligro por inundación municipal (CENAPRED 2016,
+// extraído del Atlas Nacional de Riesgos y simplificado; Medio–Muy alto).
+// huracanes.json: trayectorias HURDAT2 (NOAA) 1980–2025 que tocan México.
+const HIST_LAYERS = {
+  histflood: {
+    url: 'data/inundacion.json',
+    sourceId: 'hist-flood',
+    layerIds: ['hist-flood-fill','hist-flood-line'],
+    add(fc){
+      map.addSource('hist-flood', { type:'geojson', data: fc });
+      const before = map.getLayer('corridor-base') ? 'corridor-base' : undefined;
+      map.addLayer({
+        id: 'hist-flood-fill', type: 'fill', source: 'hist-flood',
+        layout: { visibility: 'none' },
+        paint: {
+          'fill-color': ['match', ['get','PELIGRO_IN'],
+            'Muy alto', '#c81f10',
+            'Alto', '#ff9530',
+            'Medio', '#e4c249',
+            '#e4c249'
+          ],
+          'fill-opacity': ['match', ['get','PELIGRO_IN'],
+            'Muy alto', 0.42, 'Alto', 0.32, 'Medio', 0.20, 0.2
+          ]
+        }
+      }, before);
+      map.addLayer({
+        id: 'hist-flood-line', type: 'line', source: 'hist-flood',
+        layout: { visibility: 'none' },
+        paint: { 'line-color': 'rgba(120,60,20,0.35)', 'line-width': 0.4 }
+      }, before);
+      map.on('mouseenter', 'hist-flood-fill', (e) => {
+        map.getCanvas().style.cursor = 'pointer';
+        const p = e.features[0].properties;
+        hoverPopup.setLngLat(e.lngLat).setHTML(
+          '<div class="tn">'+p.NOM_MUN+'</div>'
+          + '<div class="tl" style="color:'+(p.PELIGRO_IN==='Muy alto'?'#c81f10':p.PELIGRO_IN==='Alto'?'#ff9530':'#a78117')+'">PELIGRO '+p.PELIGRO_IN.toUpperCase()+'</div>'
+          + '<div class="ti">Índice de peligro por inundación · CENAPRED 2016</div>'
+        ).addTo(map);
+      });
+      map.on('mouseleave', 'hist-flood-fill', () => { map.getCanvas().style.cursor=''; hoverPopup.remove(); });
+    }
+  },
+  histtracks: {
+    url: 'data/huracanes.json',
+    sourceId: 'hist-tracks',
+    layerIds: ['hist-tracks-line'],
+    add(fc){
+      map.addSource('hist-tracks', { type:'geojson', data: fc });
+      const before = map.getLayer('corridor-base') ? 'corridor-base' : undefined;
+      // Solo huracanes mayores (cat. 3+) por defecto: con las 830 trazas el
+      // mapa se satura; 220 líneas cuentan la historia de exposición sin ruido.
+      map.addLayer({
+        id: 'hist-tracks-line', type: 'line', source: 'hist-tracks',
+        filter: ['>=', ['get','c'], 3],
+        layout: { visibility: 'none', 'line-cap':'round' },
+        paint: {
+          'line-color': ['step', ['get','c'],
+            'rgba(255,149,48,0.6)',
+            4, 'rgba(200,31,16,0.6)',
+            5, 'rgba(90,10,5,0.75)'
+          ],
+          'line-width': ['step', ['get','c'], 1.1, 4, 1.5, 5, 2.0],
+          'line-opacity': 0.55
+        }
+      }, before);
+      map.on('mouseenter', 'hist-tracks-line', (e) => {
+        map.getCanvas().style.cursor = 'pointer';
+        const p = e.features[0].properties;
+        const catTxt = p.c >= 1 ? 'Huracán categoría '+p.c : 'Tormenta tropical';
+        hoverPopup.setLngLat(e.lngLat).setHTML(
+          '<div class="tn">'+p.n+' ('+p.y+')</div>'
+          + '<div class="tl" style="color:'+(p.c>=4?'#c81f10':p.c>=3?'#ff9530':p.c>=1?'#a78117':'#3aa8ff')+'">'+catTxt.toUpperCase()+'</div>'
+          + '<div class="ti">Viento máx '+ktToKmh(p.w)+' km/h · '+(p.b==='EP'?'Pacífico':'Atlántico')+' · HURDAT2 NOAA</div>'
+        ).addTo(map);
+      });
+      map.on('mouseleave', 'hist-tracks-line', () => { map.getCanvas().style.cursor=''; hoverPopup.remove(); });
+    }
+  }
+};
+const histState = { histflood:{ loaded:false, loading:false }, histtracks:{ loaded:false, loading:false } };
+async function ensureHistLayer(kind){
+  const def = HIST_LAYERS[kind], st = histState[kind];
+  if(!def || !mapReady || st.loaded || st.loading) return;
+  st.loading = true;
+  try {
+    const r = await fetch(def.url);
+    if(!r.ok) throw new Error(def.url+' → '+r.status);
+    const fc = await r.json();
+    def.add(fc);
+    st.loaded = true;
+  } catch(e){
+    console.warn('Capa histórica '+kind+' falló:', e);
+  } finally {
+    st.loading = false;
+  }
+  refreshHistLayers();
+}
+function refreshHistLayers(){
+  ['histflood','histtracks'].forEach(kind => {
+    const on = mode === 'clima' && layerVis[kind];
+    const kEl = document.getElementById('cl-key-'+kind);
+    if(kEl) kEl.style.display = (on && histState[kind].loaded) ? 'inline-flex' : 'none';
+    if(!mapReady || !histState[kind].loaded) return;
+    HIST_LAYERS[kind].layerIds.forEach(id => setLayerVis(id, on));
+  });
+  const rowEl = document.getElementById('cl-hist-row');
+  if(rowEl){
+    const any = mode === 'clima' && ((layerVis.histflood && histState.histflood.loaded) || (layerVis.histtracks && histState.histtracks.loaded));
+    rowEl.style.display = any ? 'flex' : 'none';
+  }
+}
+
 function refreshRiskLayers(){
   const showCy = mode === 'clima' && layerVis.cyclones;
   const showQk = mode === 'clima' && layerVis.quakes;
@@ -1719,6 +1854,7 @@ function refreshRiskLayers(){
   const qSrc = map.getSource('quakes');         if(qSrc)     qSrc.setData(quakesFC());
   ['hurr-cone-fill','hurr-cone-line','hurr-track-line','hurr-points-circle','hurr-points-label'].forEach(id => setLayerVis(id, showCy));
   ['quakes-circle','quakes-label'].forEach(id => setLayerVis(id, showQk));
+  refreshHistLayers();
 }
 function climaIntensityAt(rainMm, windKmh){
   const rainNorm = Math.min(1, (rainMm||0) / CLIMA_SCALE.rainNorm);
@@ -2536,6 +2672,11 @@ document.querySelectorAll('[data-tg]').forEach(t => {
     t.classList.toggle('on', layerVis[layer]);
     t.setAttribute('aria-pressed', String(layerVis[layer]));
     if(layer === 'cyclones' || layer === 'quakes'){ refreshRiskLayers(); return; }
+    if(layer === 'histflood' || layer === 'histtracks'){
+      if(layerVis[layer] && !histState[layer].loaded) ensureHistLayer(layer);
+      else refreshHistLayers();
+      return;
+    }
     if(layer === 'rain'){
       if(mapReady && mode === 'clima') setLayerVis('rain-raster', layerVis.rain);
       return;

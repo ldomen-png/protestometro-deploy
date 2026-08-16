@@ -17,6 +17,8 @@ Capas y señales:
 - **Ciclones tropicales** — cono de incertidumbre, trayectoria y puntos de pronóstico del NHC/NOAA (ArcGIS REST con CORS), sondeando los slots AT1–AT5 y EP1–EP5.
 - **Sismos** — M4.5+ de los últimos 7 días vía USGS (GeoJSON con CORS).
 - **Crecidas fluviales** — descarga GloFAS (Open-Meteo Flood API); señal cuando el pronóstico supera 2× la mediana de los últimos 31 días.
+- **Inundación histórica** — índice de peligro por inundación municipal (CENAPRED 2016, Atlas Nacional de Riesgos); 1,473 municipios con peligro Medio–Muy alto, extraídos offline y simplificados a `data/inundacion.json` (~1.1 MB).
+- **Huracanes históricos** — 830 trayectorias 1980–2025 que tocan México (HURDAT2, ambas cuencas), coloreadas por categoría Saffir-Simpson, en `data/huracanes.json` (~0.4 MB). Ambas capas históricas cargan bajo demanda al activarlas.
 
 ## Fuentes de datos
 
@@ -26,8 +28,10 @@ Capas y señales:
 | Open-Meteo Flood (GloFAS) | Señal de crecida fluvial | `flood-api.open-meteo.com/v1/flood` |
 | NHC / NOAA | Ciclones tropicales (cono, track, puntos) | `mapservices.weather.noaa.gov/tropical/.../NHC_tropical_weather/MapServer` |
 | USGS | Sismos M4.5+ | `earthquake.usgs.gov/fdsnws/event/1/query` |
+| CENAPRED (estático) | Peligro por inundación municipal | Atlas Nacional de Riesgos, capa 52 → `data/inundacion.json` |
+| NOAA HURDAT2 (estático) | Trayectorias históricas de ciclones | `nhc.noaa.gov/data/hurdat/` → `data/huracanes.json` |
 
-Todas con CORS abierto — el cliente estático las consume sin backend ni API keys (salvo el token público de Mapbox).
+Las fuentes en vivo tienen CORS abierto — el cliente estático las consume sin backend ni API keys (salvo el token público de Mapbox). Las capas CENAPRED y HURDAT2 se pre-procesan offline (el ArcGIS del Atlas es demasiado lento para consultas en vivo) y viajan como GeoJSON estático del propio repo.
 
 ## Stack
 
@@ -56,7 +60,6 @@ python3 -m http.server 8000
 ## Roadmap
 
 - Proxy ligero en Vercel Functions: cachear Open-Meteo (plan comercial), parsear avisos SMN/CONAGUA
-- Capa estática de peligro por inundación municipal (CENAPRED, extracción offline del Atlas Nacional de Riesgos)
 - Incendios forestales (NASA FIRMS vía pipeline cron)
 - Semáforo probabilístico (Open-Meteo Ensemble API)
 
