@@ -989,8 +989,22 @@ canvas.wind-raster{
             </div>
             <div class="field-row">
               <div>
-                <div class="field-label">Inundación histórica</div>
-                <div class="field-sub">Peligro municipal Medio–Muy alto · CENAPRED 2016</div>
+                <div class="field-label">Puntos críticos de inundación</div>
+                <div class="field-sub">953 sitios que se inundan recurrentemente · CONAGUA 2018</div>
+              </div>
+              <div class="toggle" data-tg="histpuntos" role="button" tabindex="0"></div>
+            </div>
+            <div class="field-row">
+              <div>
+                <div class="field-label">Agua observada (satélite)</div>
+                <div class="field-sub">Agua superficial 1984–2021 · JRC/Copernicus · visible al acercar</div>
+              </div>
+              <div class="toggle" data-tg="histagua" role="button" tabindex="0"></div>
+            </div>
+            <div class="field-row">
+              <div>
+                <div class="field-label">Peligro municipal de inundación</div>
+                <div class="field-sub">Solo quintil "Muy alto" · índice relativo CENAPRED 2016</div>
               </div>
               <div class="toggle" data-tg="histflood" role="button" tabindex="0"></div>
             </div>
@@ -1071,7 +1085,9 @@ canvas.wind-raster{
         <div class="cl-row" id="cl-hist-row" style="margin-top:7px;align-items:center;display:none;">
           <span class="cl-label">Hist.</span>
           <div style="display:flex;gap:10px;flex-wrap:wrap;width:170px;">
-            <span class="cl-wind-key" id="cl-key-histflood" style="display:none"><i style="background:#ff9530"></i>&nbsp;Peligro inundación</span>
+            <span class="cl-wind-key" id="cl-key-histpuntos" style="display:none"><span style="color:#1d6fc2">●</span>&nbsp;Punto crítico inundación</span>
+            <span class="cl-wind-key" id="cl-key-histagua" style="display:none"><i style="background:#1d6fc2"></i>&nbsp;Agua observada (satélite)</span>
+            <span class="cl-wind-key" id="cl-key-histflood" style="display:none"><i style="background:#c81f10"></i>&nbsp;Peligro municipal Muy alto</span>
             <span class="cl-wind-key" id="cl-key-histtracks" style="display:none"><i style="background:#c81f10"></i>&nbsp;Huracanes cat. 3+ (1980–2025)</span>
           </div>
         </div>
@@ -1115,6 +1131,7 @@ canvas.wind-raster{
           <div class="dops-t">Exposición histórica de la zona</div>
           <div class="dops-row"><span>Peligro de inundación</span><span class="v" id="clhf">—</span></div>
           <div class="dops-row"><span>Ciclones mayores &lt;100 km</span><span class="v" id="clhh">—</span></div>
+          <div class="dops-row" id="clhp-row" style="display:none"><span>Puntos críticos de inundación &lt;15 km</span><span class="v" id="clhp">—</span></div>
           <div id="clhl" style="font-size:10px;color:var(--text-dim);margin-top:3px;line-height:1.4"></div>
         </div>
         <div class="dcorr">
@@ -1308,7 +1325,7 @@ function currentWeekIdx(){
 }
 let wk = currentWeekIdx();
 let sel = null;
-let layerVis = {hex:true, corr:true, labels:true, rain:true, cyclones:true, quakes:true, histflood:false, histtracks:false};
+let layerVis = {hex:true, corr:true, labels:true, rain:true, cyclones:true, quakes:true, histflood:false, histtracks:false, histpuntos:false, histagua:false};
 let filterVis = {alert:true, historic:true, none:false};
 let corrTypeVis = {cuota:true, libre:true};
 let highlightedCorridors = new Set();
@@ -1323,6 +1340,7 @@ let weatherData = null;
 let weatherInflight = null;
 let corridorWeatherData = null;
 let corridorWeatherInflight = null;
+let corridorRoutes = null;        // id → [[lng,lat],…] geometría real (OSRM/OSM, precomputada)
 let corridorClimaLevels = null;   // [ci][dayIdx] → nivel 0/1/2 a lo largo del corredor
 let corridorClimaStats = null;    // [ci][dayIdx] → {rain, gust} máximos del corredor
 let riskFeeds = { storms:null, quakes:null, floodReady:false, inflight:null };
@@ -1838,6 +1856,37 @@ function quakesFC(){
 // extraído del Atlas Nacional de Riesgos y simplificado; Medio–Muy alto).
 // huracanes.json: trayectorias HURDAT2 (NOAA) 1980–2025 que tocan México.
 const HIST_LAYERS = {
+  histpuntos: {
+    url: 'data/puntos_inundacion.json',
+    sourceId: 'hist-puntos',
+    layerIds: ['hist-puntos-circle'],
+    add(fc){
+      map.addSource('hist-puntos', { type:'geojson', data: fc });
+      map.addLayer({
+        id: 'hist-puntos-circle', type: 'circle', source: 'hist-puntos',
+        layout: { visibility: 'none' },
+        paint: {
+          'circle-radius': ['interpolate', ['linear'], ['zoom'], 4, 2.2, 8, 5, 12, 8],
+          'circle-color': '#1d6fc2',
+          'circle-opacity': 0.75,
+          'circle-stroke-color': 'rgba(255,255,255,0.9)',
+          'circle-stroke-width': 0.8
+        }
+      });
+      map.on('mouseenter', 'hist-puntos-circle', (e) => {
+        map.getCanvas().style.cursor = 'pointer';
+        const p = e.features[0].properties;
+        const lugar = [p.LOCALIDAD, p.MUNICIPIO, p.ESTADO].filter(Boolean).join(', ');
+        hoverPopup.setLngLat(e.lngLat).setHTML(
+          '<div class="tn">Punto crítico de inundación</div>'
+          + (p.CUERPO_AGU ? '<div class="ts">'+p.CUERPO_AGU+'</div>' : '')
+          + '<div class="tl" style="color:#3aa8ff">'+lugar.toUpperCase()+'</div>'
+          + '<div class="ti">Sitio con inundaciones recurrentes · CONAGUA-CENAPRED 2018</div>'
+        ).addTo(map);
+      });
+      map.on('mouseleave', 'hist-puntos-circle', () => { map.getCanvas().style.cursor=''; hoverPopup.remove(); });
+    }
+  },
   histflood: {
     url: 'data/inundacion.json',
     sourceId: 'hist-flood',
@@ -1845,25 +1894,19 @@ const HIST_LAYERS = {
     add(fc){
       map.addSource('hist-flood', { type:'geojson', data: fc });
       const before = map.getLayer('corridor-base') ? 'corridor-base' : undefined;
+      // Solo el quintil superior: el índice es RELATIVO (quintiles), pintar
+      // Medio+ mancha medio país y la capa deja de discriminar.
       map.addLayer({
         id: 'hist-flood-fill', type: 'fill', source: 'hist-flood',
+        filter: ['==', ['get','PELIGRO_IN'], 'Muy alto'],
         layout: { visibility: 'none' },
-        paint: {
-          'fill-color': ['match', ['get','PELIGRO_IN'],
-            'Muy alto', '#c81f10',
-            'Alto', '#ff9530',
-            'Medio', '#e4c249',
-            '#e4c249'
-          ],
-          'fill-opacity': ['match', ['get','PELIGRO_IN'],
-            'Muy alto', 0.42, 'Alto', 0.32, 'Medio', 0.20, 0.2
-          ]
-        }
+        paint: { 'fill-color': '#c81f10', 'fill-opacity': 0.30 }
       }, before);
       map.addLayer({
         id: 'hist-flood-line', type: 'line', source: 'hist-flood',
+        filter: ['==', ['get','PELIGRO_IN'], 'Muy alto'],
         layout: { visibility: 'none' },
-        paint: { 'line-color': 'rgba(120,60,20,0.35)', 'line-width': 0.4 }
+        paint: { 'line-color': 'rgba(120,30,20,0.4)', 'line-width': 0.5 }
       }, before);
       map.on('mouseenter', 'hist-flood-fill', (e) => {
         map.getCanvas().style.cursor = 'pointer';
@@ -1871,7 +1914,7 @@ const HIST_LAYERS = {
         hoverPopup.setLngLat(e.lngLat).setHTML(
           '<div class="tn">'+p.NOM_MUN+'</div>'
           + '<div class="tl" style="color:'+(p.PELIGRO_IN==='Muy alto'?'#c81f10':p.PELIGRO_IN==='Alto'?'#ff9530':'#a78117')+'">PELIGRO '+p.PELIGRO_IN.toUpperCase()+'</div>'
-          + '<div class="ti">Índice de peligro por inundación · CENAPRED 2016</div>'
+          + '<div class="ti">Quintil superior del índice municipal · CENAPRED 2016 (referencial)</div>'
         ).addTo(map);
       });
       map.on('mouseleave', 'hist-flood-fill', () => { map.getCanvas().style.cursor=''; hoverPopup.remove(); });
@@ -1914,7 +1957,11 @@ const HIST_LAYERS = {
     }
   }
 };
-const histState = { histflood:{ loaded:false, loading:false, fc:null }, histtracks:{ loaded:false, loading:false, fc:null } };
+const histState = {
+  histflood:{ loaded:false, loading:false, fc:null },
+  histtracks:{ loaded:false, loading:false, fc:null },
+  histpuntos:{ loaded:false, loading:false, fc:null }
+};
 // Datos sin capa: los usan también "Mis sitios" para calcular exposición.
 async function ensureHistData(kind){
   const def = HIST_LAYERS[kind], st = histState[kind];
@@ -1937,16 +1984,25 @@ async function ensureHistLayer(kind){
   refreshHistLayers();
 }
 function refreshHistLayers(){
-  ['histflood','histtracks'].forEach(kind => {
+  ['histflood','histtracks','histpuntos'].forEach(kind => {
     const on = mode === 'clima' && layerVis[kind];
     const kEl = document.getElementById('cl-key-'+kind);
     if(kEl) kEl.style.display = (on && histState[kind].loaded) ? 'inline-flex' : 'none';
     if(!mapReady || !histState[kind].loaded) return;
     HIST_LAYERS[kind].layerIds.forEach(id => setLayerVis(id, on));
   });
+  // Agua observada por satélite (tiles JRC — capa raster fija, sin fetch propio)
+  setLayerVis('gsw-raster', mode === 'clima' && layerVis.histagua);
+  const aguaKey = document.getElementById('cl-key-histagua');
+  if(aguaKey) aguaKey.style.display = (mode === 'clima' && layerVis.histagua) ? 'inline-flex' : 'none';
   const rowEl = document.getElementById('cl-hist-row');
   if(rowEl){
-    const any = mode === 'clima' && ((layerVis.histflood && histState.histflood.loaded) || (layerVis.histtracks && histState.histtracks.loaded));
+    const any = mode === 'clima' && (
+      (layerVis.histflood && histState.histflood.loaded) ||
+      (layerVis.histtracks && histState.histtracks.loaded) ||
+      (layerVis.histpuntos && histState.histpuntos.loaded) ||
+      layerVis.histagua
+    );
     rowEl.style.display = any ? 'flex' : 'none';
   }
 }
@@ -2054,7 +2110,23 @@ function siteHistContext(s){
     });
     out.hurr = { n, last };
   }
+  const pc = puntosCriticosCerca(s.lat, s.lng, 15);
+  if(pc) out.puntos = pc;
   return out;
+}
+// Puntos críticos de inundación (CONAGUA 2018) a menos de `km` de un punto.
+function puntosCriticosCerca(lat, lng, km){
+  const pfc = histState.histpuntos.fc;
+  if(!pfc) return null;
+  const kx = 111 * Math.cos(lat * Math.PI / 180);
+  let n = 0, nearest = null, nd = 1e9;
+  pfc.features.forEach(f => {
+    const [lo, la] = f.geometry.coordinates;
+    if(Math.abs(la - lat) > 0.3 || Math.abs(lo - lng) > 0.3) return;
+    const d = Math.hypot((lo - lng) * kx, (la - lat) * 111);
+    if(d <= km){ n++; if(d < nd){ nd = d; nearest = f.properties; } }
+  });
+  return { n, nearest, dist: nd };
 }
 function sitesFC(){
   return {
@@ -2080,6 +2152,7 @@ async function initSites(){
   await loadSiteWeather();
   ensureHistData('histflood').then(() => renderSitesPanel());
   ensureHistData('histtracks').then(() => renderSitesPanel());
+  ensureHistData('histpuntos').then(() => renderSitesPanel());
   renderSitesPanel();
   refreshSitesLayer();
 }
@@ -2102,6 +2175,7 @@ async function addSiteAt(lngLat){
   await loadSiteWeather();
   ensureHistData('histflood').then(() => renderSitesPanel());
   ensureHistData('histtracks').then(() => renderSitesPanel());
+  ensureHistData('histpuntos').then(() => renderSitesPanel());
   renderSitesPanel();
   refreshSitesLayer();
   renderAll();
@@ -2144,6 +2218,7 @@ function renderSitesPanel(){
     const histParts = [];
     if(hist.flood) histParts.push('peligro de inundación <b style="color:'+(hist.flood==='Muy alto'?'#ff8070':hist.flood==='Alto'?'#ff9530':'#f5d066')+'">'+hist.flood+'</b> (CENAPRED)');
     if(hist.hurr) histParts.push(hist.hurr.n + ' ciclones mayores a <100 km desde 1980' + (hist.hurr.last ? ' (último: '+escHTML(hist.hurr.last.n)+' '+hist.hurr.last.y+')' : ''));
+    if(hist.puntos && hist.puntos.n > 0) histParts.push('<b style="color:#3aa8ff">'+hist.puntos.n+'</b> punto'+(hist.puntos.n>1?'s':'')+' crítico'+(hist.puntos.n>1?'s':'')+' de inundación a <15 km'+(hist.puntos.nearest && hist.puntos.nearest.CUERPO_AGU ? ' ('+escHTML(hist.puntos.nearest.CUERPO_AGU)+' a '+hist.puntos.dist.toFixed(0)+' km)' : ''));
     const cone = siteInCone(s);
     return '<div class="site-row">'
       + '<div class="site-row-top">'
@@ -2597,6 +2672,7 @@ async function setMode(newMode){
     // después para no pelear con el burst limit de Open-Meteo. Los feeds de
     // riesgo (NHC, USGS, GloFAS) van a otros dominios y arrancan de inmediato.
     loadRiskFeeds();
+    ensureHistData('histpuntos'); // datos ligeros: alimentan detalle de zona y sitios
     const [data] = await Promise.all([loadWeather(), loadCorridorWeather()]);
     if(!data){
       document.getElementById('hl-text').innerHTML = '<div class="hl-secondary" style="color:var(--red)">No se pudo cargar el pronóstico. Reintenta.</div>';
@@ -3116,11 +3192,12 @@ document.querySelectorAll('[data-tg]').forEach(t => {
     t.classList.toggle('on', layerVis[layer]);
     t.setAttribute('aria-pressed', String(layerVis[layer]));
     if(layer === 'cyclones' || layer === 'quakes'){ refreshRiskLayers(); return; }
-    if(layer === 'histflood' || layer === 'histtracks'){
+    if(layer === 'histflood' || layer === 'histtracks' || layer === 'histpuntos'){
       if(layerVis[layer] && !histState[layer].loaded) ensureHistLayer(layer);
       else refreshHistLayers();
       return;
     }
+    if(layer === 'histagua'){ refreshHistLayers(); return; }
     if(layer === 'rain'){
       if(mapReady && mode === 'clima') setLayerVis('rain-raster', layerVis.rain);
       return;
@@ -3301,10 +3378,13 @@ function corridorsFC(){
       } else if(corridorClimaLevels && corridorClimaLevels[ci]){
         weekLevel = corridorClimaLevels[ci][wk] || 0;
       }
+      // Geometría real de carretera si está cargada; los waypoints solo son
+      // el respaldo (y siguen siendo la base del muestreo meteorológico).
+      const coords = (corridorRoutes && corridorRoutes[c.id]) ? corridorRoutes[c.id] : c.wp.map(p => [p[1], p[0]]);
       return {
         type: 'Feature',
         properties: { id: c.id, name: c.name, type: c.type, affected: highlightedCorridors.has(c.id), weekLevel },
-        geometry: { type: 'LineString', coordinates: c.wp.map(p => [p[1], p[0]]) }
+        geometry: { type: 'LineString', coordinates: coords }
       };
     })
   };
@@ -3431,6 +3511,16 @@ function showDet(z){
     fEl.textContent = zh.f || 'Bajo';
     fEl.style.color = zh.f === 'Muy alto' ? '#ff8070' : zh.f === 'Alto' ? '#ff9530' : zh.f === 'Medio' ? '#f5d066' : '#88c4a8';
     document.getElementById('clhh').textContent = zh.h + ' desde 1980';
+    const pcRow = document.getElementById('clhp-row');
+    const pc = puntosCriticosCerca(z.lat, z.lng, 15);
+    if(pc && pc.n > 0){
+      pcRow.style.display = 'flex';
+      const el = document.getElementById('clhp');
+      el.textContent = pc.n + (pc.nearest && pc.nearest.CUERPO_AGU ? ' · '+pc.nearest.CUERPO_AGU : '');
+      el.style.color = '#7cc0ff';
+    } else {
+      pcRow.style.display = 'none';
+    }
     document.getElementById('clhl').textContent = zh.hl
       ? ('Último: '+zh.hl+' · cat. máxima del ciclón, no al pasar. Fuentes: CENAPRED 2016 · HURDAT2.')
       : 'Sin ciclones mayores a <100 km desde 1980. Fuentes: CENAPRED 2016 · HURDAT2.';
@@ -3751,6 +3841,12 @@ function renderCorridors(){
   el.innerHTML = html;
 }
 
+// Trazos reales de los corredores (precomputados con OSRM sobre OSM).
+fetch('data/corredores.json')
+  .then(r => r.ok ? r.json() : null)
+  .then(d => { if(d){ corridorRoutes = d; if(mapReady) refreshCorridors(); } })
+  .catch(() => { /* fallback: waypoints rectos */ });
+
 // Initial render (works without map)
 applyHistoricoCopy();
 renderAll();
@@ -3819,6 +3915,16 @@ try {
     map.addSource('hurr-points', { type:'geojson', data: hurricanesFC('points') });
     map.addSource('quakes',      { type:'geojson', data: quakesFC() });
     map.addSource('sites',       { type:'geojson', data: sitesFC() });
+    // Agua superficial observada por satélite 1984–2021 (JRC Global Surface
+    // Water, Copernicus/Landsat). Ocurrencia observada, no índice: azul =
+    // ahí HA habido agua. Tiles públicos con CORS abierto.
+    map.addSource('gsw', {
+      type: 'raster',
+      tiles: ['https://storage.googleapis.com/global-surface-water/tiles2021/occurrence/{z}/{x}/{y}.png'],
+      tileSize: 256,
+      maxzoom: 13,
+      attribution: 'JRC Global Surface Water'
+    });
 
     // ── Layers (bottom → top) ─────────────────────────────────────────────
     // Insert above the basemap roads label layer so our labels render on top.
@@ -3919,6 +4025,15 @@ try {
         'text-halo-blur': 0
       }
     });
+
+    // minzoom 6: a zoom nacional el dataset pinta el océano completo; su valor
+    // está al acercarse — ríos, lagunas y planicies que se inundan.
+    map.addLayer({
+      id: 'gsw-raster', type: 'raster', source: 'gsw',
+      minzoom: 6,
+      layout: { visibility: 'none' },
+      paint: { 'raster-opacity': 0.75 }
+    }, firstSymbolLayer);
 
     // ── Capas de riesgo externo (solo modo clima) ─────────────────────────
     // Cono de incertidumbre NHC: relleno tenue + borde, debajo de labels.
