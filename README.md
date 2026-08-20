@@ -20,11 +20,13 @@ Capas y señales:
 
 - **Malla nacional de lluvia** — 660 celdas a 1°, raster interpolado en GPU (Mapbox canvas source).
 - **Partículas de viento** — campo u/v advectado en tiempo real (hasta 1,400 partículas).
-- **Corredores con pronóstico propio** — los 30 corredores federales se evalúan punto a punto (196 waypoints); el nivel toma el peor tramo de la ruta.
+- **Corredores con pronóstico propio** — los 30 corredores federales se evalúan punto a punto (196 waypoints); el nivel toma el peor tramo. Se dibujan con **geometría real de carretera** (OSRM/OSM precomputado en `data/corredores.json`).
 - **Ciclones tropicales** — cono de incertidumbre, trayectoria y puntos de pronóstico del NHC/NOAA (ArcGIS REST con CORS), sondeando los slots AT1–AT5 y EP1–EP5.
 - **Sismos** — M4.5+ de los últimos 7 días vía USGS (GeoJSON con CORS).
 - **Crecidas fluviales** — descarga GloFAS (Open-Meteo Flood API); señal cuando el pronóstico supera 2× la mediana de los últimos 31 días.
-- **Inundación histórica** — índice de peligro por inundación municipal (CENAPRED 2016, Atlas Nacional de Riesgos); 1,473 municipios con peligro Medio–Muy alto, extraídos offline y simplificados a `data/inundacion.json` (~1.1 MB).
+- **Puntos críticos de inundación** — 953 sitios con inundaciones recurrentes (CONAGUA-CENAPRED 2018), con cuerpo de agua y localidad; alimentan el detalle de zonas y sitios ("N puntos a <15 km"). `data/puntos_inundacion.json`.
+- **Agua observada por satélite** — ocurrencia de agua superficial 1984–2021 (JRC Global Surface Water, tiles públicos), visible a zoom ≥6.
+- **Peligro municipal de inundación** — índice CENAPRED 2016 (quintiles relativos); solo se pinta el quintil "Muy alto" como referencia. `data/inundacion.json` (~1.1 MB).
 - **Huracanes históricos** — 830 trayectorias 1980–2025 que tocan México (HURDAT2, ambas cuencas), coloreadas por categoría Saffir-Simpson, en `data/huracanes.json` (~0.4 MB). Ambas capas históricas cargan bajo demanda al activarlas.
 
 ## Fuentes de datos
