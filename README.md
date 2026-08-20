@@ -1,11 +1,18 @@
-# Protestómetro MX · Climómetro
+# Climómetro MX
 
-Portal público de riesgo operativo para las 75 zonas metropolitanas de México, desarrollado por [Aleph](https://alephri.com). Dos modos sobre el mismo mapa:
+Sistema de riesgo climático-operativo para empresas en México, desarrollado por [Aleph](https://alephri.com). Pronóstico a 7 días para las principales zonas urbanas, corredores carreteros e instalaciones propias del usuario, con ciclones, sismos y crecidas en vivo.
 
-- **Protestas** — semáforo semanal de conflictividad social (actualización manual por equipo Aleph).
-- **Clima (Climómetro)** — pronóstico de riesgo climático-operativo a 7 días, con datos en vivo.
+> El modo **Protestas** (Protestómetro) está desactivado temporalmente (`PRODUCT = 'clima'` en `index.html`); su código sigue intacto y se reactiva cambiando esa constante a `'dual'`.
 
-## Modo Clima
+## Qué hace
+
+- **Semáforo con atribución y acción**: cada zona/corredor/sitio indica su nivel, *qué variable lo disparó* (lluvia, viento, ráfagas, calor, visibilidad) y una *sugerencia operativa* (playbook por causa y severidad).
+- **Mis sitios**: el usuario agrega sus plantas/CEDIS con clic en el mapa (localStorage); cada sitio recibe pronóstico propio a 7 días, exposición histórica (CENAPRED + HURDAT2) y alerta si cae dentro del cono de un ciclón activo del NHC.
+- **Parte operativo**: botón que copia al portapapeles el resumen del día (sitios, zonas y corredores en rojo, ciclones, crecidas) listo para pegar en el chat del comité.
+- **Frescura y revalidación**: hora de descarga visible junto al headline; el semáforo se revalida cada 30 min y al volver a la pestaña.
+- **Exposición histórica por zona**: cada ZM muestra su índice de peligro de inundación (CENAPRED 2016) y cuántos ciclones cat. 3+ pasaron a <100 km desde 1980 (precomputado, embebido).
+
+## Capas y señales
 
 **Semáforo logístico multi-variable** por zona y por día, con atribución (la app dice *por qué* una zona está en alerta): lluvia acumulada, viento sostenido, ráfagas, calor extremo y condición del cielo (código WMO). Umbrales centralizados en `CLIMA_THRESHOLDS`.
 

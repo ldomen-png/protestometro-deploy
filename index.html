@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>Protestómetro MX — Aleph</title>
+<title>Climómetro MX — Aleph</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://api.mapbox.com/mapbox-gl-js/v3.8.0/mapbox-gl.css">
 <script src="https://api.mapbox.com/mapbox-gl-js/v3.8.0/mapbox-gl.js"></script>
@@ -374,6 +374,43 @@ html,body{height:100%;width:100%;overflow:hidden;font-family:'Inter',sans-serif;
 }
 .corr-zm:hover{background:rgba(228,194,73,0.18);border-color:rgba(228,194,73,0.4);}
 
+/* DAY CHIPS (navegación de días en modo clima) */
+.day-chips{display:flex;gap:4px;width:100%;}
+.day-chip{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 2px;border:1px solid var(--border);border-radius:6px;cursor:pointer;background:rgba(255,255,255,0.03);transition:background .15s;touch-action:manipulation;}
+.day-chip:hover{background:rgba(255,255,255,0.07);}
+.day-chip.on{border-color:var(--aleph-yellow);background:rgba(228,194,73,0.10);}
+.dc-day{font-size:9px;font-weight:600;letter-spacing:0.04em;color:var(--text-muted);text-transform:uppercase;}
+.day-chip.on .dc-day{color:var(--aleph-yellow);}
+.dc-dot{width:8px;height:8px;border-radius:50%;}
+.dc-n{font-size:10px;font-weight:600;color:rgba(255,255,255,0.85);}
+
+/* MIS SITIOS */
+.site-add-btn{
+  display:block;width:100%;padding:9px 12px;margin-top:8px;
+  background:rgba(228,194,73,0.10);border:1px dashed rgba(228,194,73,0.45);
+  border-radius:6px;color:var(--aleph-yellow);font-family:'Inter',sans-serif;
+  font-size:12px;font-weight:600;cursor:pointer;text-align:center;
+  transition:background .15s;touch-action:manipulation;
+}
+.site-add-btn:hover{background:rgba(228,194,73,0.18);}
+.site-add-btn.arming{background:var(--aleph-yellow);color:#0a0a0a;border-style:solid;}
+.site-row{padding:12px 16px;border-bottom:1px solid rgba(255,255,255,0.05);}
+.site-row-top{display:flex;align-items:center;gap:8px;}
+.site-name-input{
+  flex:1;background:transparent;border:none;border-bottom:1px dashed transparent;
+  color:#fff;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;padding:1px 0;min-width:0;
+}
+.site-name-input:hover{border-bottom-color:rgba(255,255,255,0.25);}
+.site-name-input:focus{outline:none;border-bottom-color:var(--aleph-yellow);}
+.site-del{background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:13px;padding:2px 4px;touch-action:manipulation;}
+.site-del:hover{color:var(--red-text);}
+.site-days{display:flex;gap:3px;margin:8px 0 6px;}
+.site-day{flex:1;height:10px;border-radius:2px;cursor:pointer;touch-action:manipulation;}
+.site-day.on{outline:1.5px solid var(--aleph-yellow);outline-offset:1px;}
+.site-meta{font-size:10px;color:rgba(255,255,255,0.65);line-height:1.5;}
+.site-alert{margin-top:6px;padding:5px 8px;border-radius:4px;font-size:10px;line-height:1.4;}
+.site-alert.cone{background:rgba(224,48,32,0.12);border:1px solid rgba(224,48,32,0.35);color:#ff8070;}
+
 /* ── MAP ─────────────────────────────────────────────────── */
 #mapwrap{position:absolute;inset:0;background:#0a0a0a;overflow:hidden;touch-action:none;isolation:isolate;z-index:0;}
 #map{position:absolute;inset:0;background:#f4f4f4;}
@@ -734,9 +771,11 @@ canvas.wind-raster{
     <div class="brand">
       <img class="brand-logo-img" src="data:image/png;base64,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" alt="Aleph">
       <div class="brand-divider"></div>
-      <div class="brand-product" id="brand-product">Protestómetro</div>
+      <div class="brand-product" id="brand-product">Climómetro</div>
     </div>
-    <div id="mode-toggle">
+    <!-- Modo Protestas desactivado temporalmente (data sin actualizar); el
+         toggle queda oculto pero el código de ambos modos sigue intacto. -->
+    <div id="mode-toggle" style="display:none">
       <button type="button" data-mode="protestas" class="on" aria-pressed="true">Protestas</button>
       <button type="button" data-mode="clima" aria-pressed="false">Clima</button>
     </div>
@@ -748,12 +787,18 @@ canvas.wind-raster{
     <div class="hm-section">
       <div class="hm-title">Acerca de</div>
       <div class="hm-body">
-        <strong>Protestómetro MX</strong> es un sistema de inteligencia de conflictividad social desarrollado por Aleph. Monitorea protestas y manifestaciones en las 75 zonas urbanas más importantes de México con actualización semanal.
+        <strong>Climómetro MX</strong> es el sistema de riesgo climático-operativo de Aleph: pronóstico a 7 días para las principales zonas urbanas y corredores carreteros de México, con ciclones, sismos y crecidas en vivo.
       </div>
     </div>
     <div class="hm-section">
-      <div class="hm-title">Última actualización</div>
-      <div class="hm-body" id="hm-update">16 May 2026, 07:00 hrs</div>
+      <div class="hm-title">Cómo funciona el semáforo</div>
+      <div class="hm-body" id="hm-method" style="font-size:11px;line-height:1.6"></div>
+    </div>
+    <div class="hm-section">
+      <div class="hm-title">Fuentes y frecuencia</div>
+      <div class="hm-body" id="hm-update" style="font-size:11px;line-height:1.6">
+        Open-Meteo (ECMWF/GFS/ICON, actualización horaria) · Ciclones NHC/NOAA (cada 3–6 h) · Sismos USGS (continuo) · Crecidas GloFAS/Copernicus (diario) · Históricos: CENAPRED 2016 y HURDAT2 1980–2025.
+      </div>
     </div>
     <div class="hm-section">
       <a href="https://alephri.com" target="_blank" class="hm-link">Visitar Aleph →</a>
@@ -771,19 +816,26 @@ canvas.wind-raster{
         </svg>
         <div class="rail-tooltip">Resumen</div>
       </div>
-      <div class="rail-icon" data-panel="historico" role="button" tabindex="0">
+      <div class="rail-icon" data-panel="sitios" role="button" tabindex="0">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="3" y="11" width="4" height="9"/>
-          <rect x="10" y="6" width="4" height="14"/>
-          <rect x="17" y="3" width="4" height="17"/>
+          <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 1 1 16 0z"/>
+          <circle cx="12" cy="10" r="3"/>
         </svg>
-        <div class="rail-tooltip">Predicción semanal</div>
+        <div class="rail-tooltip">Mis sitios</div>
       </div>
       <div class="rail-icon" data-panel="corredores" role="button" tabindex="0">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
           <path d="M3 12h6l3-8 3 16 3-8h3"/>
         </svg>
         <div class="rail-tooltip">Corredores</div>
+      </div>
+      <div class="rail-icon" data-panel="historico" role="button" tabindex="0">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="11" width="4" height="9"/>
+          <rect x="10" y="6" width="4" height="14"/>
+          <rect x="17" y="3" width="4" height="17"/>
+        </svg>
+        <div class="rail-tooltip">Pronóstico 7 días</div>
       </div>
       <div class="rail-icon" data-panel="capas" role="button" tabindex="0">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
@@ -807,6 +859,8 @@ canvas.wind-raster{
           <div class="headline">
             <div class="hl-week" id="hl-week">ESTA SEMANA</div>
             <div class="hl-text" id="hl-text">—</div>
+            <div id="hl-fresh" style="font-size:9px;color:var(--text-dim);margin-top:8px;letter-spacing:0.03em;display:flex;align-items:center;gap:8px;flex-wrap:wrap"></div>
+            <button id="parte-btn" type="button" style="display:none;margin-top:10px;width:100%;padding:7px 10px;background:rgba(255,255,255,0.05);border:1px solid var(--border-strong);border-radius:5px;color:rgba(255,255,255,0.85);font-family:'Inter',sans-serif;font-size:11px;font-weight:600;cursor:pointer;letter-spacing:0.03em">⧉ Copiar parte operativo del día</button>
           </div>
           <div class="section">
             <div class="section-t" id="wnav-title">Semana en análisis</div>
@@ -852,6 +906,23 @@ canvas.wind-raster{
           <div id="hist-week-caret" style="display:none;align-items:center;gap:8px;padding:2px 16px 0;"></div>
           <div id="hist-day-header" style="display:none;align-items:center;gap:8px;padding:6px 16px 4px;border-bottom:1px solid rgba(255,255,255,0.06);"></div>
           <div id="hist-list"></div>
+        </div>
+      </div>
+
+      <!-- MIS SITIOS -->
+      <div class="panel-content" data-panel="sitios" style="display:none;flex-direction:column;flex:1;min-height:0">
+        <div class="panel-header">
+          <div class="panel-title">Mis sitios</div>
+          <div class="panel-close" data-close role="button" tabindex="0">✕</div>
+        </div>
+        <div class="panel-body">
+          <div class="section" style="padding-bottom:10px;">
+            <div style="font-size:11px;color:rgba(255,255,255,0.6);line-height:1.5;">
+              Tus instalaciones con semáforo propio a 7 días, exposición histórica y alerta de ciclón. Guardadas en este navegador.
+            </div>
+            <button id="site-add" class="site-add-btn" type="button">+ Agregar sitio (clic en el mapa)</button>
+          </div>
+          <div id="sites-list"></div>
         </div>
       </div>
 
@@ -959,7 +1030,7 @@ canvas.wind-raster{
           <div class="cloader-phase" id="cloader-phase">Conectando…</div>
           <div class="cloader-track"><div class="cloader-fill" id="cloader-fill"></div></div>
           <div class="cloader-meta">
-            <span id="cloader-pct">0%</span><span class="cloader-sep">·</span><span id="cloader-eta">~25 s</span>
+            <span id="cloader-pct">0%</span><span class="cloader-sep">·</span><span id="cloader-eta">~5 s</span>
           </div>
           <div class="cloader-fact" id="cloader-fact">&nbsp;</div>
         </div>
@@ -1019,9 +1090,9 @@ canvas.wind-raster{
         <div class="dniv" id="dniv">—</div>
         <div class="dchart" id="dch"></div>
         <div class="dstats">
-          <div><div class="dsv" id="dsa">—</div><div class="dsl">Semanas activas</div></div>
+          <div><div class="dsv" id="dsa">—</div><div class="dsl" id="dsa-lbl">Semanas activas</div></div>
           <div><div class="dsv" id="dsp">—</div><div class="dsl">Población</div></div>
-          <div><div class="dsv" id="dsm">—</div><div class="dsl">Nivel máx</div></div>
+          <div><div class="dsv" id="dsm">—</div><div class="dsl" id="dsm-lbl">Nivel máx</div></div>
         </div>
         <div class="dops" id="dops-block">
           <div class="dops-t">Inteligencia operativa</div>
@@ -1039,6 +1110,12 @@ canvas.wind-raster{
           <div class="dops-row"><span>Nivel logístico</span><span class="pattern" id="clmlvl">—</span></div>
           <div id="clmwhy" style="font-size:10px;color:var(--text-dim);margin-top:4px;line-height:1.4"></div>
           <div id="clmflood" style="display:none;margin-top:6px;padding:6px 8px;border-radius:4px;background:rgba(58,168,255,0.10);border:1px solid rgba(58,168,255,0.30);font-size:10px;color:#7cc0ff;line-height:1.4"></div>
+        </div>
+        <div class="dops" id="clima-hist-block" style="display:none">
+          <div class="dops-t">Exposición histórica de la zona</div>
+          <div class="dops-row"><span>Peligro de inundación</span><span class="v" id="clhf">—</span></div>
+          <div class="dops-row"><span>Ciclones mayores &lt;100 km</span><span class="v" id="clhh">—</span></div>
+          <div id="clhl" style="font-size:10px;color:var(--text-dim);margin-top:3px;line-height:1.4"></div>
         </div>
         <div class="dcorr">
           <div class="dcorr-t">
@@ -1062,6 +1139,12 @@ const ZONAS=[{"cve":1.01,"zm":"Aguascalientes","estado":"Aguascalientes","pob":1
 ZONAS.forEach(z=>{z.alertas=z.semanas.filter(v=>v>0).length;z.max=Math.max(...z.semanas);});
 
 const CORRIDORS=[{"id":"57D","name":"México–Querétaro–SLP–Monterrey–Laredo","type":"cuota","wp":[[19.43,-99.13],[19.62,-99.27],[20.59,-100.39],[21.18,-100.93],[22.15,-100.98],[23.74,-100.64],[25.42,-100.99],[25.67,-100.31],[26.92,-99.86],[27.49,-99.51]]},{"id":"15D","name":"Nogales–Hermosillo–Culiacán–Guadalajara","type":"cuota","wp":[[31.31,-110.94],[30.78,-110.94],[29.07,-110.97],[27.49,-109.94],[26.85,-109.18],[25.79,-108.99],[24.8,-107.39],[23.22,-106.41],[22.5,-105.39],[21.51,-104.9],[20.91,-104.18],[20.67,-103.35]]},{"id":"45D","name":"Cd. Juárez–Chihuahua–Aguascalientes–Querétaro","type":"cuota","wp":[[31.74,-106.49],[30.4,-106.16],[28.63,-106.07],[27.06,-105.07],[26.93,-105.66],[25.55,-103.43],[25.42,-100.99],[22.77,-102.57],[21.88,-102.29],[20.97,-101.36],[20.59,-100.39]]},{"id":"95D","name":"Autopista del Sol (México–Acapulco)","type":"cuota","wp":[[19.43,-99.13],[18.92,-99.23],[18.42,-99.32],[17.55,-99.5],[17.15,-99.66],[16.86,-99.88]]},{"id":"85","name":"México–Pachuca–Cd. Victoria–Monterrey","type":"libre","wp":[[19.43,-99.13],[20.12,-98.73],[21.14,-98.42],[22.27,-98.95],[23.74,-99.14],[24.78,-99.86],[25.67,-100.31]]},{"id":"150D","name":"México–Puebla–Veracruz","type":"cuota","wp":[[19.43,-99.13],[19.04,-98.2],[18.85,-97.1],[19.18,-96.14]]},{"id":"190","name":"México–Oaxaca–Tehuantepec","type":"libre","wp":[[19.43,-99.13],[19.04,-98.2],[18.74,-98.36],[17.81,-97.78],[17.06,-96.72],[16.45,-96.13],[16.32,-95.23]]},{"id":"40D","name":"Mazatlán–Durango–Saltillo","type":"cuota","wp":[[23.22,-106.41],[23.66,-105.55],[24.02,-104.66],[25.1,-103.27],[25.55,-103.43],[25.42,-100.99],[25.67,-100.31]]},{"id":"180","name":"Costera del Golfo (Tampico–Mérida)","type":"libre","wp":[[22.27,-97.86],[21.16,-97.41],[20.53,-97.46],[19.85,-96.49],[19.18,-96.14],[18.43,-95.85],[17.99,-94.55],[18.13,-94.42],[18.55,-93.2],[17.99,-92.93],[18.43,-91.83],[18.65,-91.83],[19.05,-90.72],[19.84,-90.52],[20.3,-90.05],[20.97,-89.62]]},{"id":"200","name":"Costera del Pacífico (Tepic–Tapachula)","type":"libre","wp":[[21.51,-104.9],[20.71,-105.23],[19.55,-105.07],[19.05,-104.32],[18.06,-102.2],[17.66,-101.55],[16.86,-99.88],[16.31,-98.23],[15.86,-97.07],[15.66,-96.5],[15.36,-95.1],[14.9,-92.26]]},{"id":"AN","name":"Arco Norte (Tula–Pachuca–Puebla)","type":"cuota","wp":[[20.05,-99.34],[20.12,-98.73],[19.79,-98.4],[19.55,-98.07],[19.3,-98.1],[19.04,-98.2]]},{"id":"54D","name":"Guadalajara–Zacatecas–Saltillo","type":"cuota","wp":[[20.67,-103.35],[21.85,-102.85],[22.77,-102.57],[24.2,-101.81],[25.42,-100.99]]},{"id":"80D","name":"Guadalajara–León","type":"cuota","wp":[[20.67,-103.35],[20.81,-102.77],[20.66,-101.86],[21.12,-101.68]]},{"id":"90D","name":"León–Querétaro–México","type":"cuota","wp":[[21.12,-101.68],[20.85,-101.32],[20.52,-100.81],[20.59,-100.39],[19.83,-99.41],[19.43,-99.13]]},{"id":"120","name":"México–Toluca–Morelia","type":"libre","wp":[[19.43,-99.13],[19.29,-99.65],[19.36,-100.13],[19.7,-101.19]]},{"id":"15","name":"Morelia–Guadalajara (libre)","type":"libre","wp":[[19.7,-101.19],[19.98,-102.28],[20.32,-102.79],[20.67,-103.35]]},{"id":"131","name":"Oaxaca–Tuxtepec–Veracruz","type":"libre","wp":[[17.06,-96.72],[17.5,-96.45],[18.1,-96.13],[18.6,-96.34],[19.18,-96.14]]},{"id":"185","name":"Coatzacoalcos–Tuxtla–Tapachula","type":"libre","wp":[[18.13,-94.42],[17.99,-94.55],[17.18,-94.42],[16.74,-93.36],[16.75,-93.11],[16.24,-92.64],[15.4,-92.42],[14.9,-92.26]]},{"id":"186","name":"Villahermosa–Escárcega–Chetumal","type":"libre","wp":[[17.99,-92.93],[17.74,-91.99],[17.61,-91.45],[17.99,-90.72],[18.61,-90.72],[18.5,-89.4],[18.5,-88.3]]},{"id":"307","name":"Cancún–Playa–Tulum–Chetumal","type":"libre","wp":[[21.16,-86.83],[20.63,-87.07],[20.21,-87.46],[19.58,-88.05],[18.5,-88.3]]},{"id":"57","name":"SLP–Aguascalientes–Querétaro","type":"libre","wp":[[22.15,-100.98],[22.05,-101.62],[21.88,-102.29],[20.97,-101.36],[20.59,-100.39]]},{"id":"40","name":"Reynosa–Monterrey–Saltillo","type":"libre","wp":[[26.08,-98.29],[25.95,-99.05],[25.67,-100.31],[25.42,-100.99]]},{"id":"2","name":"Frontera Norte (Tijuana–Reynosa)","type":"libre","wp":[[32.52,-117.03],[32.66,-115.47],[32.49,-114.78],[31.32,-110.94],[30.71,-106.51],[31.31,-107.5],[31.74,-106.49],[29.55,-104.41],[28.7,-100.52],[27.49,-99.51],[26.93,-99.1],[26.08,-98.29]]},{"id":"55","name":"Toluca–Querétaro","type":"libre","wp":[[19.29,-99.65],[19.71,-99.99],[19.86,-100.3],[20.39,-100.18],[20.59,-100.39]]},{"id":"125","name":"Acapulco–Cd. Altamirano–Morelia","type":"libre","wp":[[16.86,-99.88],[17.55,-100.18],[18.36,-100.66],[19.07,-101.04],[19.7,-101.19]]},{"id":"105","name":"Pachuca–Tampico","type":"libre","wp":[[20.12,-98.73],[20.5,-98.45],[21.14,-98.42],[21.95,-98.5],[22.27,-97.86]]},{"id":"75","name":"Querétaro–San Luis Potosí","type":"libre","wp":[[20.59,-100.39],[21.2,-100.55],[22.15,-100.98]]},{"id":"45","name":"Querétaro–Celaya–León","type":"libre","wp":[[20.59,-100.39],[20.52,-100.81],[20.74,-101.34],[21.12,-101.68]]},{"id":"110","name":"Zamora–Pátzcuaro–Morelia","type":"libre","wp":[[19.98,-102.28],[19.65,-102.04],[19.51,-101.61],[19.7,-101.19]]},{"id":"5","name":"Mexicali–Ensenada","type":"libre","wp":[[32.66,-115.47],[32.3,-115.94],[31.87,-116.6]]}];
+
+// Contexto histórico por ZM (precomputado offline): h = ciclones que alcanzaron
+// cat. 3+ en su vida y cuya trayectoria pasó a <100 km del centroide (HURDAT2
+// 1980-2025; la categoría es la máxima del ciclón, no necesariamente al pasar);
+// hl = el más reciente; f = índice de peligro por inundación CENAPRED 2016.
+const ZM_HIST={"1.01":{"h":4,"hl":"Lidia (2023, cat. 4, a 74 km)","f":"Medio"},"2.01":{"h":2,"hl":"Hilary (2023, cat. 4, a 71 km)"},"2.02":{"h":1,"hl":"Nora (1997, cat. 4, a 61 km)","f":"Muy alto"},"2.03":{"h":0,"f":"Medio"},"3.01":{"h":8,"hl":"Norma (2023, cat. 4, a 42 km)"},"4.01":{"h":7,"hl":"Grace (2021, cat. 3, a 93 km)","f":"Muy alto"},"5.01":{"h":2,"hl":"Hector (2018, cat. 4, a 42 km)","f":"Muy alto"},"5.02":{"h":1,"hl":"Bret (1999, cat. 4, a 98 km)"},"5.03":{"h":2,"hl":"Bret (1999, cat. 4, a 79 km)","f":"Alto"},"5.04":{"h":4,"hl":"Roslyn (2022, cat. 4, a 55 km)","f":"Alto"},"6.01":{"h":2,"hl":"Winifred (1992, cat. 3, a 43 km)","f":"Muy alto"},"6.02":{"h":3,"hl":"John (2024, cat. 3, a 98 km)","f":"Muy alto"},"7.01":{"h":1,"hl":"Mitch (1998, cat. 5, a 54 km)","f":"Alto"},"7.02":{"h":3,"hl":"Felix (2007, cat. 5, a 73 km)","f":"Muy alto"},"7.03":{"h":4,"hl":"Felix (2007, cat. 5, a 57 km)","f":"Muy alto"},"8.01":{"h":1,"hl":"Norbert (2008, cat. 4, a 98 km)","f":"Alto"},"8.02":{"h":1,"hl":"John (1994, cat. 5, a 38 km)","f":"Alto"},"8.03":{"h":1,"hl":"Lidia (1993, cat. 4, a 32 km)"},"8.04":{"h":1,"hl":"John (1994, cat. 5, a 38 km)","f":"Alto"},"9.01":{"h":0,"f":"Muy alto"},"9.02":{"h":0,"f":"Muy alto"},"9.03":{"h":0,"f":"Muy alto"},"9.04":{"h":0,"f":"Alto"},"9.05":{"h":0,"f":"Muy alto"},"10.01":{"h":3,"hl":"Roslyn (2022, cat. 4, a 68 km)","f":"Medio"},"11.01":{"h":2,"hl":"John (1994, cat. 5, a 68 km)","f":"Alto"},"11.02":{"h":1,"hl":"John (1994, cat. 5, a 79 km)","f":"Muy alto"},"11.03":{"h":2,"hl":"John (1994, cat. 5, a 68 km)","f":"Alto"},"11.04":{"h":0,"f":"Muy alto"},"11.05":{"h":2,"hl":"John (1994, cat. 5, a 80 km)","f":"Muy alto"},"12.01":{"h":5,"hl":"Erick (2025, cat. 4, a 58 km)","f":"Muy alto"},"12.02":{"h":5,"hl":"Erick (2025, cat. 4, a 28 km)","f":"Medio"},"13.01":{"h":2,"hl":"Grace (2021, cat. 3, a 77 km)","f":"Medio"},"13.02":{"h":1,"hl":"Dean (2007, cat. 5, a 61 km)","f":"Alto"},"13.03":{"h":2,"hl":"Grace (2021, cat. 3, a 40 km)","f":"Alto"},"14.01":{"h":3,"hl":"Lidia (2023, cat. 4, a 97 km)","f":"Muy alto"},"14.02":{"h":1,"hl":"Winifred (1992, cat. 3, a 56 km)","f":"Muy alto"},"14.03":{"h":7,"hl":"Lidia (2023, cat. 4, a 28 km)","f":"Alto"},"15.01":{"h":0,"f":"Medio"},"15.02":{"h":0,"f":"Medio"},"16.01":{"h":0,"f":"Muy alto"},"16.02":{"h":0,"f":"Alto"},"16.03":{"h":1,"hl":"Pauline (1997, cat. 4, a 93 km)","f":"Muy alto"},"17.01":{"h":0,"f":"Alto"},"17.02":{"h":0,"f":"Alto"},"18.01":{"h":6,"hl":"Lidia (2023, cat. 4, a 78 km)","f":"Alto"},"19.01":{"h":3,"hl":"Hector (2018, cat. 4, a 56 km)","f":"Medio"},"20.01":{"h":1,"hl":"Dora (1999, cat. 4, a 42 km)","f":"Alto"},"20.02":{"h":1,"hl":"Dora (2023, cat. 4, a 56 km)","f":"Alto"},"21.01":{"h":1,"hl":"Karl (2010, cat. 3, a 97 km)","f":"Alto"},"21.02":{"h":1,"hl":"Karl (2010, cat. 3, a 16 km)","f":"Medio"},"21.03":{"h":2,"hl":"Grace (2021, cat. 3, a 70 km)","f":"Medio"},"22.01":{"h":0,"f":"Alto"},"23.01":{"h":9,"hl":"Helene (2024, cat. 4, a 60 km)","f":"Alto"},"23.02":{"h":5,"hl":"Harvey (2017, cat. 4, a 42 km)","f":"Alto"},"24.01":{"h":1,"hl":"John (1994, cat. 5, a 46 km)","f":"Alto"},"24.02":{"h":1,"hl":"John (1994, cat. 5, a 46 km)","f":"Alto"},"25.01":{"h":5,"hl":"Norma (2023, cat. 4, a 53 km)","f":"Alto"},"25.02":{"h":7,"hl":"Orlene (2022, cat. 4, a 41 km)","f":"Alto"},"26.01":{"h":2,"hl":"Sergio (2018, cat. 4, a 36 km)","f":"Medio"},"26.02":{"h":1,"hl":"Javier (2004, cat. 4, a 69 km)","f":"Medio"},"26.03":{"h":2,"hl":"John (1994, cat. 5, a 11 km)"},"27.01":{"h":3,"hl":"Felix (2007, cat. 5, a 62 km)","f":"Muy alto"},"28.01":{"h":1,"hl":"Keith (2000, cat. 4, a 53 km)","f":"Alto"},"28.02":{"h":2,"hl":"Hector (2018, cat. 4, a 79 km)","f":"Muy alto"},"28.03":{"h":2,"hl":"Bret (1999, cat. 4, a 48 km)","f":"Alto"},"28.04":{"h":1,"hl":"Allen (1980, cat. 5, a 67 km)","f":"Muy alto"},"28.05":{"h":2,"hl":"Keith (2000, cat. 4, a 24 km)","f":"Muy alto"},"29.01":{"h":1,"hl":"Grace (2021, cat. 3, a 89 km)","f":"Muy alto"},"30.01":{"h":1,"hl":"Dora (1999, cat. 4, a 56 km)","f":"Muy alto"},"30.02":{"h":3,"hl":"Felix (2007, cat. 5, a 81 km)","f":"Muy alto"},"30.03":{"h":1,"hl":"Karl (2010, cat. 3, a 6 km)","f":"Alto"},"30.04":{"h":2,"hl":"Felix (2007, cat. 5, a 86 km)","f":"Muy alto"},"30.05":{"h":1,"hl":"Karl (2010, cat. 3, a 13 km)","f":"Muy alto"},"30.06":{"h":2,"hl":"Grace (2021, cat. 3, a 6 km)","f":"Muy alto"},"30.07":{"h":2,"hl":"Karl (2010, cat. 3, a 15 km)","f":"Muy alto"},"30.08":{"h":2,"hl":"Karl (2010, cat. 3, a 62 km)","f":"Alto"},"31.01":{"h":10,"hl":"Beryl (2024, cat. 5, a 33 km)","f":"Medio"},"32.01":{"h":2,"hl":"Lidia (2023, cat. 4, a 16 km)","f":"Muy alto"}};
 
 const MOS=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
 const fmtD=d=>{const[y,m,day]=d.split('-');return parseInt(day)+' '+MOS[parseInt(m)-1]+' '+y;};
@@ -1166,15 +1249,17 @@ function buildHeadline(weekIdx, compact){
   } else {
     html += '<div class="hl-primary"><span class="hl-num red hl-big">'+act.length+'</span><span class="hl-label">'+labelActive+'</span></div>';
     
-    // SECONDARY LINE: breakdown by level
+    // SECONDARY LINE: breakdown by level — mismo vocabulario que el resto de la app
+    const redWord = isClima ? 'con disrupción alta' : 'en rojo';
+    const yelWord = isClima ? 'con retrasos probables' : 'en amarillo';
     const lvlParts = [];
-    if(red > 0) lvlParts.push('<span class="hl-num red">'+red+'</span> en rojo');
-    if(yel > 0) lvlParts.push('<span class="hl-num yellow">'+yel+'</span> en amarillo');
+    if(red > 0) lvlParts.push('<span class="hl-num red">'+red+'</span> '+redWord);
+    if(yel > 0) lvlParts.push('<span class="hl-num yellow">'+yel+'</span> '+yelWord);
     if(lvlParts.length === 1 && (red===act.length || yel===act.length)){
       // All same level — say it differently to avoid redundancy
-      const lvlWord = red === act.length ? 'rojo' : 'amarillo';
+      const lvlWord = red === act.length ? redWord : yelWord;
       const lvlCls = red === act.length ? 'red' : 'yellow';
-      html += '<div class="hl-secondary">Todas en nivel <span class="hl-'+lvlCls+'-text">'+lvlWord+'</span>.</div>';
+      html += '<div class="hl-secondary">Todas <span class="hl-'+lvlCls+'-text">'+lvlWord+'</span>.</div>';
     } else {
       html += '<div class="hl-secondary">'+lvlParts.join(' · ')+'.</div>';
     }
@@ -1229,6 +1314,10 @@ let corrTypeVis = {cuota:true, libre:true};
 let highlightedCorridors = new Set();
 
 // ── Mode switching (Protestas | Clima) ─────────────────────────────────
+// PRODUCT fija el producto público. 'clima' = Climómetro standalone: arranca
+// en clima, oculta el toggle y suprime los ítems de protestas del ticker.
+// Volver a 'dual' reactiva el Protestómetro sin tocar nada más.
+const PRODUCT = 'clima';
 let mode = 'protestas';
 let weatherData = null;
 let weatherInflight = null;
@@ -1240,6 +1329,8 @@ let riskFeeds = { storms:null, quakes:null, floodReady:false, inflight:null };
 let gridWeatherData = null;
 let gridWeatherInflight = null;
 let gridWeatherFetchedAt = null;
+let gridLoadStatus = null;    // texto de progreso de la malla (carga en 2º plano)
+let gridCoveragePct = null;   // % de celdas obtenidas — visible si <95
 let windLayerEnabled = true;
 // Mapbox style is loaded asynchronously — refresh* needs to wait. Set to true
 // inside map.on('load'). Anything that mutates layer data short-circuits if false.
@@ -1252,7 +1343,7 @@ let savedProtestasDates = null;
 // corredores) deriva de esta tabla para que ningún número cuente una historia
 // distinta en dos lugares.
 const CLIMA_THRESHOLDS = {
-  yellowRain:5,  redRain:30,   // mm acumulados/día
+  yellowRain:15, redRain:30,   // mm acumulados/día (15: <eso es lluvia normal de temporada, no alerta)
   yellowWind:40, redWind:60,   // viento sostenido máx km/h
   yellowGust:60, redGust:85,   // ráfaga máx km/h
   yellowHeat:42, redHeat:46    // temperatura máx °C
@@ -1464,23 +1555,44 @@ function climaDayRisk(rainMm, windKmh, gustKmh, tmaxC, code){
   const T = CLIMA_THRESHOLDS;
   const reasons = [];
   let level = 0;
-  const bump = (lvl, txt) => { if(lvl > level) level = lvl; reasons.push({ lvl, txt }); };
-  if(rainMm >= T.redRain) bump(2, rainMm.toFixed(0)+' mm de lluvia');
-  else if(rainMm >= T.yellowRain) bump(1, rainMm.toFixed(0)+' mm de lluvia');
-  if(windKmh >= T.redWind) bump(2, 'viento '+windKmh.toFixed(0)+' km/h');
-  else if(windKmh >= T.yellowWind) bump(1, 'viento '+windKmh.toFixed(0)+' km/h');
+  const bump = (lvl, txt, cat) => { if(lvl > level) level = lvl; reasons.push({ lvl, txt, cat }); };
+  if(rainMm >= T.redRain) bump(2, rainMm.toFixed(0)+' mm de lluvia', 'lluvia');
+  else if(rainMm >= T.yellowRain) bump(1, rainMm.toFixed(0)+' mm de lluvia', 'lluvia');
+  if(windKmh >= T.redWind) bump(2, 'viento '+windKmh.toFixed(0)+' km/h', 'viento');
+  else if(windKmh >= T.yellowWind) bump(1, 'viento '+windKmh.toFixed(0)+' km/h', 'viento');
   if(gustKmh != null){
-    if(gustKmh >= T.redGust) bump(2, 'ráfagas '+gustKmh.toFixed(0)+' km/h');
-    else if(gustKmh >= T.yellowGust) bump(1, 'ráfagas '+gustKmh.toFixed(0)+' km/h');
+    if(gustKmh >= T.redGust) bump(2, 'ráfagas '+gustKmh.toFixed(0)+' km/h', 'viento');
+    else if(gustKmh >= T.yellowGust) bump(1, 'ráfagas '+gustKmh.toFixed(0)+' km/h', 'viento');
   }
   if(tmaxC != null){
-    if(tmaxC >= T.redHeat) bump(2, 'calor extremo '+tmaxC.toFixed(0)+'°C');
-    else if(tmaxC >= T.yellowHeat) bump(1, 'calor '+tmaxC.toFixed(0)+'°C');
+    if(tmaxC >= T.redHeat) bump(2, 'calor extremo '+tmaxC.toFixed(0)+'°C', 'calor');
+    else if(tmaxC >= T.yellowHeat) bump(1, 'calor '+tmaxC.toFixed(0)+'°C', 'calor');
   }
   const w = wmoLabel(code);
-  if(w && w.severe && level === 0) bump(1, w.label.toLowerCase());
+  if(w && w.severe && level === 0) bump(1, w.label.toLowerCase(), 'visibilidad');
   reasons.sort((a,b) => b.lvl - a.lvl);
-  return { level, reasons: reasons.map(r => r.txt) };
+  // cat = categoría de la razón dominante — alimenta el playbook de acciones.
+  return { level, reasons: reasons.map(r => r.txt), cat: reasons.length ? reasons[0].cat : null };
+}
+
+// Acciones recomendadas por nivel y causa dominante. Sugerencias, no órdenes:
+// el "entonces qué hago" que convierte un pronóstico en una decisión.
+const PLAYBOOK = {
+  2: {
+    lluvia: 'Retén o reprograma embarques hacia la zona; activa protocolo de inundación en piso y confirma rutas alternas antes de despachar.',
+    viento: 'Suspende maniobras de patio con grúa/montacargas, asegura lonas y contenedores vacíos, y reevalúa la salida de cajas de alto perfil.',
+    calor: 'Ajusta turnos de patio a horas tempranas, refuerza hidratación y verifica refrigeración de unidades y cadena de frío.',
+    visibilidad: 'Retrasa salidas nocturnas/madrugada hasta que levante; exige convoy con distancia ampliada en tramos de montaña.'
+  },
+  1: {
+    lluvia: 'Adelanta salidas o programa ruta alterna; confirma condiciones con el transportista antes de despachar.',
+    viento: 'Revisa amarres y carga de alto perfil antes de salir; monitorea ráfagas en el trayecto.',
+    calor: 'Programa descansos en patio y verifica cadena de frío en unidades expuestas.',
+    visibilidad: 'Confirma visibilidad en ruta antes de salidas de madrugada.'
+  }
+};
+function playbookFor(level, cat){
+  return (PLAYBOOK[level] && PLAYBOOK[level][cat]) || null;
 }
 function climaLevelFromDay(rainMm, windKmh, gustKmh, tmaxC, code){
   return climaDayRisk(rainMm, windKmh, gustKmh, tmaxC, code).level;
@@ -1686,7 +1798,7 @@ function loadRiskFeeds(){
       riskFeeds.storms = storms;
       if(mapReady) refreshRiskLayers();
       renderTicker();
-      if(mode === 'clima') renderAll();
+      if(mode === 'clima'){ renderAll(); renderSitesPanel(); }
       return storms;
     }).catch(e => { console.warn('NHC failed:', e); return null; }),
     loadQuakes().then(q => {
@@ -1802,22 +1914,26 @@ const HIST_LAYERS = {
     }
   }
 };
-const histState = { histflood:{ loaded:false, loading:false }, histtracks:{ loaded:false, loading:false } };
+const histState = { histflood:{ loaded:false, loading:false, fc:null }, histtracks:{ loaded:false, loading:false, fc:null } };
+// Datos sin capa: los usan también "Mis sitios" para calcular exposición.
+async function ensureHistData(kind){
+  const def = HIST_LAYERS[kind], st = histState[kind];
+  if(st.fc) return st.fc;
+  if(st.fetching) return st.fetching;
+  st.fetching = fetch(def.url).then(r => {
+    if(!r.ok) throw new Error(def.url+' → '+r.status);
+    return r.json();
+  }).then(fc => { st.fc = fc; st.fetching = null; return fc; })
+    .catch(e => { console.warn('Datos históricos '+kind+' fallaron:', e); st.fetching = null; return null; });
+  return st.fetching;
+}
 async function ensureHistLayer(kind){
   const def = HIST_LAYERS[kind], st = histState[kind];
   if(!def || !mapReady || st.loaded || st.loading) return;
   st.loading = true;
-  try {
-    const r = await fetch(def.url);
-    if(!r.ok) throw new Error(def.url+' → '+r.status);
-    const fc = await r.json();
-    def.add(fc);
-    st.loaded = true;
-  } catch(e){
-    console.warn('Capa histórica '+kind+' falló:', e);
-  } finally {
-    st.loading = false;
-  }
+  const fc = await ensureHistData(kind);
+  if(fc && !st.loaded){ def.add(fc); st.loaded = true; }
+  st.loading = false;
   refreshHistLayers();
 }
 function refreshHistLayers(){
@@ -1833,6 +1949,216 @@ function refreshHistLayers(){
     const any = mode === 'clima' && ((layerVis.histflood && histState.histflood.loaded) || (layerVis.histtracks && histState.histtracks.loaded));
     rowEl.style.display = any ? 'flex' : 'none';
   }
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// MIS SITIOS — instalaciones propias del usuario (localStorage, sin backend).
+// Cada sitio recibe su propio pronóstico Open-Meteo, semáforo con razones y
+// sugerencia, más exposición histórica (CENAPRED + HURDAT2) y alerta si cae
+// dentro del cono de un ciclón activo.
+// ════════════════════════════════════════════════════════════════════════
+const SITES_KEY = 'climometro_sitios_v1';
+let sites = [];
+try { sites = JSON.parse(localStorage.getItem(SITES_KEY) || '[]'); } catch(e){ sites = []; }
+let siteWeather = null, siteWeatherFor = '';
+let addingSite = false;
+const escHTML = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function saveSites(){ try { localStorage.setItem(SITES_KEY, JSON.stringify(sites)); } catch(e){} }
+async function loadSiteWeather(){
+  if(!sites.length){ siteWeather = null; siteWeatherFor = ''; return null; }
+  const key = sites.map(s => s.lat+','+s.lng).join(';');
+  if(siteWeather && siteWeatherFor === key) return siteWeather;
+  const lats = sites.map(s => s.lat).join(',');
+  const lngs = sites.map(s => s.lng).join(',');
+  const url = 'https://api.open-meteo.com/v1/forecast?latitude='+lats+'&longitude='+lngs
+    +'&daily=precipitation_sum,precipitation_probability_max,wind_speed_10m_max,wind_gusts_10m_max,temperature_2m_max,weather_code'
+    +'&timezone=America%2FMexico_City&forecast_days=7';
+  // Reintentos con backoff: este fetch puede coincidir con los lotes de la
+  // malla y toparse con el burst limit de Open-Meteo (429).
+  for(let attempt = 0; attempt < 6; attempt++){
+    try {
+      const r = await fetch(url);
+      if(!r.ok) throw new Error('Open-Meteo '+r.status);
+      const d = await r.json();
+      if(d && d.error) throw new Error(d.reason || 'API error');
+      // Si la lista de sitios cambió mientras esperábamos (alta/baja rápida),
+      // esta respuesta ya no corresponde: relanza con la lista vigente en vez
+      // de pisar los datos buenos con una respuesta obsoleta.
+      const nowKey = sites.map(s => s.lat+','+s.lng).join(';');
+      if(nowKey !== key) return loadSiteWeather();
+      siteWeather = Array.isArray(d) ? d : [d];
+      siteWeatherFor = key;
+      return siteWeather;
+    } catch(e){
+      if(attempt === 5){ console.warn('Pronóstico de sitios falló:', e); }
+      else await new Promise(res => setTimeout(res, 1500 * Math.pow(1.8, attempt)));
+    }
+  }
+  return siteWeather;
+}
+function siteRisk(idx, di){
+  if(!siteWeather || !siteWeather[idx] || !siteWeather[idx].daily) return null;
+  const d = siteWeather[idx].daily;
+  return climaDayRisk(
+    (d.precipitation_sum||[])[di] || 0,
+    (d.wind_speed_10m_max||[])[di] || 0,
+    (d.wind_gusts_10m_max||[])[di],
+    (d.temperature_2m_max||[])[di],
+    (d.weather_code||[])[di]
+  );
+}
+function pointInRingJS(lat, lng, ring){
+  let inside = false;
+  for(let i = 0, j = ring.length - 1; i < ring.length; j = i++){
+    const xi = ring[i][0], yi = ring[i][1], xj = ring[j][0], yj = ring[j][1];
+    if(((yi > lat) !== (yj > lat)) && (lng < (xj - xi) * (lat - yi) / (yj - yi) + xi)) inside = !inside;
+  }
+  return inside;
+}
+function pointInGeomJS(lat, lng, geom){
+  if(!geom) return false;
+  const polys = geom.type === 'MultiPolygon' ? geom.coordinates : [geom.coordinates];
+  return polys.some(poly => pointInRingJS(lat, lng, poly[0]) && poly.slice(1).every(h => !pointInRingJS(lat, lng, h)));
+}
+function siteInCone(s){
+  let hit = null;
+  (riskFeeds.storms || []).forEach(st => {
+    if(st.cone && st.cone.features && st.cone.features.some(f => pointInGeomJS(s.lat, s.lng, f.geometry))) hit = st;
+  });
+  return hit;
+}
+function siteHistContext(s){
+  const out = { flood: null, hurr: null };
+  const RANKF = { 'Medio': 1, 'Alto': 2, 'Muy alto': 3 };
+  const ffc = histState.histflood.fc;
+  if(ffc){
+    let best = 0;
+    ffc.features.forEach(f => {
+      const r = RANKF[f.properties.PELIGRO_IN] || 0;
+      if(r > best && pointInGeomJS(s.lat, s.lng, f.geometry)){ best = r; out.flood = f.properties.PELIGRO_IN; }
+    });
+  }
+  const tfc = histState.histtracks.fc;
+  if(tfc){
+    let n = 0, last = null;
+    tfc.features.forEach(f => {
+      if(f.properties.c < 3) return;
+      const co = f.geometry.coordinates;
+      let best = 1e9;
+      for(let i = 0; i < co.length - 1; i++){
+        if(Math.abs(co[i][1] - s.lat) > 3 && Math.abs(co[i+1][1] - s.lat) > 3) continue;
+        const d = pointToSegmentKm(s.lat, s.lng, co[i][1], co[i][0], co[i+1][1], co[i+1][0]);
+        if(d < best) best = d;
+      }
+      if(best <= 100){ n++; if(!last || f.properties.y >= last.y) last = f.properties; }
+    });
+    out.hurr = { n, last };
+  }
+  return out;
+}
+function sitesFC(){
+  return {
+    type: 'FeatureCollection',
+    features: sites.map((s, i) => {
+      const r = siteRisk(i, wk);
+      return {
+        type: 'Feature',
+        properties: { id: s.id, name: s.name, level: r ? r.level : 0, idx: i },
+        geometry: { type: 'Point', coordinates: [s.lng, s.lat] }
+      };
+    })
+  };
+}
+function refreshSitesLayer(){
+  if(!mapReady) return;
+  const src = map.getSource('sites');
+  if(src) src.setData(sitesFC());
+  ['sites-circle','sites-label'].forEach(id => setLayerVis(id, mode === 'clima' && sites.length > 0));
+}
+async function initSites(){
+  if(!sites.length){ renderSitesPanel(); return; }
+  await loadSiteWeather();
+  ensureHistData('histflood').then(() => renderSitesPanel());
+  ensureHistData('histtracks').then(() => renderSitesPanel());
+  renderSitesPanel();
+  refreshSitesLayer();
+}
+function startAddSite(){
+  addingSite = !addingSite;
+  const btn = document.getElementById('site-add');
+  if(btn){
+    btn.classList.toggle('arming', addingSite);
+    btn.textContent = addingSite ? 'Haz clic en el mapa sobre tu instalación…' : '+ Agregar sitio (clic en el mapa)';
+  }
+  if(mapReady) map.getCanvas().style.cursor = addingSite ? 'crosshair' : '';
+}
+async function addSiteAt(lngLat){
+  addingSite = false;
+  if(mapReady) map.getCanvas().style.cursor = '';
+  const btn = document.getElementById('site-add');
+  if(btn){ btn.classList.remove('arming'); btn.textContent = '+ Agregar sitio (clic en el mapa)'; }
+  sites.push({ id: 's' + Date.now(), name: 'Sitio ' + (sites.length + 1), lat: +lngLat.lat.toFixed(4), lng: +lngLat.lng.toFixed(4) });
+  saveSites();
+  await loadSiteWeather();
+  ensureHistData('histflood').then(() => renderSitesPanel());
+  ensureHistData('histtracks').then(() => renderSitesPanel());
+  renderSitesPanel();
+  refreshSitesLayer();
+  renderAll();
+}
+window.removeSite = function(id){
+  sites = sites.filter(s => s.id !== id);
+  saveSites();
+  siteWeatherFor = '';
+  loadSiteWeather().then(() => { renderSitesPanel(); refreshSitesLayer(); renderAll(); });
+};
+window.renameSite = function(id, name){
+  const s = sites.find(s => s.id === id);
+  if(s){ s.name = (name || '').trim().slice(0, 60) || s.name; saveSites(); refreshSitesLayer(); }
+};
+function renderSitesPanel(){
+  const el = document.getElementById('sites-list');
+  if(!el) return;
+  if(!sites.length){
+    el.innerHTML = '<div style="padding:16px;font-size:12px;color:var(--text-dim);line-height:1.6">'
+      + 'Agrega tus plantas, CEDIS u oficinas para verlas con su propio semáforo de 7 días, '
+      + 'su exposición histórica a inundación y huracanes, y alertas si caen en el cono de un ciclón activo. '
+      + 'Se guardan solo en este navegador.</div>';
+    return;
+  }
+  const DOW = ['DOM','LUN','MAR','MIÉ','JUE','VIE','SÁB'];
+  el.innerHTML = sites.map((s, i) => {
+    const today = siteRisk(i, wk);
+    const lvl = today ? today.level : 0;
+    const [lbl, col] = lvlMeta(lvl);
+    const days = SEMANAS.map((d, di) => {
+      const r = siteRisk(i, di);
+      const v = r ? r.level : 0;
+      const c = v === 2 ? '#e03020' : v === 1 ? '#e4c249' : 'rgba(62,207,110,0.35)';
+      const why = (r && r.reasons.length) ? ' · ' + r.reasons.join(', ') : '';
+      return '<div class="site-day'+(di===wk?' on':'')+'" style="background:'+c+'" onclick="jmpW('+di+')" title="'+fmtD(d)+why+'"></div>';
+    }).join('');
+    const reasons = (today && today.reasons.length) ? today.reasons.join(' · ') : 'sin afectación prevista';
+    const action = today ? playbookFor(today.level, today.cat) : null;
+    const hist = siteHistContext(s);
+    const histParts = [];
+    if(hist.flood) histParts.push('peligro de inundación <b style="color:'+(hist.flood==='Muy alto'?'#ff8070':hist.flood==='Alto'?'#ff9530':'#f5d066')+'">'+hist.flood+'</b> (CENAPRED)');
+    if(hist.hurr) histParts.push(hist.hurr.n + ' ciclones mayores a <100 km desde 1980' + (hist.hurr.last ? ' (último: '+escHTML(hist.hurr.last.n)+' '+hist.hurr.last.y+')' : ''));
+    const cone = siteInCone(s);
+    return '<div class="site-row">'
+      + '<div class="site-row-top">'
+      +   '<span style="width:9px;height:9px;border-radius:50%;background:'+col+';flex-shrink:0"></span>'
+      +   '<input class="site-name-input" value="'+escHTML(s.name)+'" onchange="renameSite(\''+s.id+'\', this.value)" aria-label="Nombre del sitio">'
+      +   '<button class="site-del" onclick="removeSite(\''+s.id+'\')" title="Eliminar sitio">✕</button>'
+      + '</div>'
+      + '<div class="site-days">'+days+'</div>'
+      + '<div class="site-meta"><b style="color:'+col+'">'+lbl+'</b> · '+reasons
+      +   (action ? '<br><span style="color:var(--aleph-yellow)">Sugerencia:</span> '+action : '')
+      +   (histParts.length ? '<br>Exposición: '+histParts.join(' · ') : '')
+      + '</div>'
+      + (cone ? '<div class="site-alert cone">🌀 Dentro del cono de pronóstico de '+escHTML(cone.name)+' (aviso #'+cone.advisory+' NHC). Activa protocolo de ciclón.</div>' : '')
+      + '</div>';
+  }).join('');
 }
 
 function refreshRiskLayers(){
@@ -1862,12 +2188,21 @@ function climaIntensityAt(rainMm, windKmh){
   return { rainNorm, windNorm, intensity: Math.max(rainNorm, windNorm), useWind: windNorm > rainNorm && (windKmh||0) > 30 };
 }
 function updateClimaFreshness(){
+  const parts = [];
+  if(climaFetchedAt){
+    const mins = Math.max(0, Math.floor((Date.now() - climaFetchedAt) / 60000));
+    const ago = mins < 1 ? 'hace segundos' : (mins < 60 ? 'hace '+mins+' min' : 'hace '+Math.floor(mins/60)+' h');
+    parts.push('Open-Meteo · descargado '+ago+' · se revalida cada 30 min');
+  } else {
+    parts.push('Pronóstico Open-Meteo · cargando…');
+  }
+  if(gridLoadStatus) parts.push('malla: '+gridLoadStatus);
+  else if(gridCoveragePct != null && gridCoveragePct < 95) parts.push('cobertura de malla '+gridCoveragePct+'%');
+  const txt = parts.join(' · ');
   const el = document.getElementById('clima-fresh');
-  if(!el) return;
-  if(!gridWeatherFetchedAt){ el.textContent = 'Pronóstico Open-Meteo · cargando…'; return; }
-  const mins = Math.max(0, Math.floor((Date.now() - gridWeatherFetchedAt) / 60000));
-  const ago = mins < 1 ? 'hace segundos' : (mins < 60 ? 'hace '+mins+' min' : 'hace '+Math.floor(mins/60)+' h');
-  el.textContent = 'Open-Meteo · actualizado '+ago;
+  if(el) el.textContent = txt;
+  const hl = document.getElementById('hl-fresh');
+  if(hl) hl.textContent = (mode === 'clima') ? txt : '';
 }
 
 // ── CLIMA LOADER (entertain + progress while grid fetches) ──────────────
@@ -1879,8 +2214,8 @@ const CLIMA_FACTS = [
   'Lluvia, ráfagas, calor extremo y condición del cielo alimentan el semáforo logístico.',
   'Ciclones tropicales en vivo: cono y trayectoria oficiales del NHC/NOAA, ambas cuencas.',
   'Sismos M4.5+ de los últimos 7 días vía USGS · crecidas fluviales vía GloFAS (Copernicus).',
-  'Interpolación bilineal en GPU · resampling lineal nativo de Mapbox GL JS.',
-  'Hasta 1,400 partículas advectadas por el campo u/v en tiempo real.',
+  'Cada zona indica no solo el nivel sino QUÉ variable lo disparó: lluvia, ráfagas, calor o visibilidad.',
+  'Agrega tus plantas y CEDIS en "Mis sitios" para verlos con semáforo propio y alertas de ciclón.',
   'Aleph cruza este feed con el monitoreo semanal de protestas · una sola vista de riesgo operativo.',
   '30 corredores federales con pronóstico propio punto a punto — 95D, 150D, 57D, 200, AN…'
 ];
@@ -1928,7 +2263,7 @@ const climaLoader = {
     if(fill) fill.style.width = (pct * 100).toFixed(0) + '%';
     if(pctEl) pctEl.textContent = Math.round(pct * 100) + '%';
     if(etaEl){
-      if(pct <= 0){ etaEl.textContent = '~25 s'; return; }
+      if(pct <= 0){ etaEl.textContent = '~5 s'; return; }
       const elapsed = (Date.now() - this.startedAt) / 1000;
       const totalEst = elapsed / pct;
       const remaining = Math.max(1, Math.round(totalEst - elapsed));
@@ -1967,6 +2302,24 @@ function toggleWindLayer(){
 function setLayerVis(id, on){
   if(!mapReady || !map.getLayer(id)) return;
   map.setLayoutProperty(id, 'visibility', on ? 'visible' : 'none');
+}
+// En clima los puntos de zona SON el semáforo (color+tamaño por nivel); en
+// protestas vuelven a ser puntos neutros porque ahí el nivel lo pintan los hexágonos.
+function applyZonaCirclePaint(){
+  if(!mapReady || !map.getLayer('zonas-circle')) return;
+  if(mode === 'clima'){
+    map.setPaintProperty('zonas-circle', 'circle-color', ['match', ['get','level'], 2, '#e03020', 1, '#e4c249', '#8fb8a4']);
+    map.setPaintProperty('zonas-circle', 'circle-radius', ['match', ['get','level'], 2, 8, 1, 6, 3.5]);
+    map.setPaintProperty('zonas-circle', 'circle-opacity', 0.95);
+    map.setPaintProperty('zonas-circle', 'circle-stroke-color', 'rgba(255,255,255,0.95)');
+    map.setPaintProperty('zonas-circle', 'circle-stroke-width', 1.6);
+  } else {
+    map.setPaintProperty('zonas-circle', 'circle-color', '#1a1a1a');
+    map.setPaintProperty('zonas-circle', 'circle-radius', ['case', ['==', ['get','level'], 0], 3.5, ['==', ['get','level'], 1], 4, 5]);
+    map.setPaintProperty('zonas-circle', 'circle-opacity', 0.85);
+    map.setPaintProperty('zonas-circle', 'circle-stroke-color', 'rgba(255,255,255,0.9)');
+    map.setPaintProperty('zonas-circle', 'circle-stroke-width', 1.2);
+  }
 }
 
 // ── SMOOTH RAIN RASTER (Mapbox canvas source) ───────────────────────────
@@ -2157,6 +2510,72 @@ const WindOverlay = {
     }
   }
 };
+// Convierte la respuesta de Open-Meteo en semáforo por zona y fechas del
+// pronóstico. Compartido entre la entrada a modo clima y la revalidación.
+let climaFetchedAt = null;
+function processClimaZones(data){
+  ZONAS.forEach((z, i) => {
+    const fc = data[i];
+    if(!fc || !fc.daily){ z.semanas = [0,0,0,0,0,0,0]; return; }
+    const rain = fc.daily.precipitation_sum || [];
+    const wind = fc.daily.wind_speed_10m_max || [];
+    const gust = fc.daily.wind_gusts_10m_max || [];
+    const tmax = fc.daily.temperature_2m_max || [];
+    const prob = fc.daily.precipitation_probability_max || [];
+    const code = fc.daily.weather_code || [];
+    const risks = rain.map((r, di) => climaDayRisk(r||0, wind[di]||0, gust[di], tmax[di], code[di]));
+    z.semanas = risks.map(x => x.level);
+    z._climaRain = rain;
+    z._climaWind = wind;
+    z._climaGust = gust;
+    z._climaTmax = tmax;
+    z._climaProb = prob;
+    z._climaCode = code;
+    z._climaReasons = risks.map(x => x.reasons);
+    z._climaCat = risks.map(x => x.cat);
+  });
+  // Las fechas del pronóstico vienen de la API (zona horaria de CDMX) — no
+  // del reloj local del navegador, que puede estar en otro huso.
+  SEMANAS.length = 0;
+  const apiDays = (data[0] && data[0].daily && data[0].daily.time) ? data[0].daily.time : [];
+  if(apiDays.length >= 7){
+    apiDays.slice(0,7).forEach(d => SEMANAS.push(d));
+  } else {
+    const today = new Date();
+    for(let i=0;i<7;i++){
+      const d = new Date(today); d.setDate(d.getDate()+i);
+      SEMANAS.push(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'));
+    }
+  }
+  climaFetchedAt = Date.now();
+}
+// Revalidación silenciosa: Open-Meteo corre cada hora; una pestaña abierta no
+// debe servir el pronóstico de ayer. Refresca semáforo y corredores sin tocar
+// la malla (esa se renueva por día vía su cache) ni resetear el día visto.
+async function revalidateClima(){
+  if(mode !== 'clima') return;
+  weatherData = null; weatherInflight = null;
+  corridorWeatherData = null; corridorWeatherInflight = null;
+  const [data] = await Promise.all([loadWeather(), loadCorridorWeather()]);
+  if(!data) return;
+  computeCorridorClimaLevels();
+  const keepDay = SEMANAS[wk];
+  processClimaZones(data);
+  const newIdx = SEMANAS.indexOf(keepDay);
+  wk = newIdx >= 0 ? newIdx : 0;
+  recomputeZMStats();
+  loadFlood();
+  if(map) refreshMap();
+  renderAll();
+  renderTicker();
+  if(sel) showDet(sel);
+  updateClimaFreshness();
+}
+setInterval(revalidateClima, 30 * 60 * 1000);
+document.addEventListener('visibilitychange', () => {
+  if(!document.hidden && climaFetchedAt && (Date.now() - climaFetchedAt) > 60 * 60 * 1000) revalidateClima();
+});
+
 async function setMode(newMode){
   if(mode === newMode) return;
   document.querySelectorAll('#mode-toggle button').forEach(b => {
@@ -2186,69 +2605,36 @@ async function setMode(newMode){
       return;
     }
     computeCorridorClimaLevels();
-    climaLoader.setPhase('Cargando malla nacional');
-    const grid = await loadGridWeather((info) => {
-      if(info.phase === 'cache'){
-        climaLoader.setPhase('Pronóstico en caché · cargando');
-        climaLoader.setProgress(1, 1);
-      } else if(info.phase === 'fetch'){
-        climaLoader.totalBatches = info.total;
-        climaLoader.setPhase('Cargando lote '+info.current+' de '+info.total);
-        // Reserve the last 20 % of the bar for the optional fill pass.
-        climaLoader.setProgress(info.current * 0.8, info.total);
-      } else if(info.phase === 'fill'){
-        climaLoader.setPhase('Rellenando cobertura · '+info.current+'/'+info.total+' celdas');
-        climaLoader.setProgress(0.8 + 0.2 * (info.current / Math.max(1, info.total)), 1);
-      }
-    });
-    if(!grid){
-      console.warn('Grid weather unavailable — raster layer stays empty');
-    } else {
-      const totalCells = generateMexicoGrid().length;
-      console.log('Grid clima: '+grid.length+'/'+totalCells+' celdas ('+Math.round(grid.length/totalCells*100)+'%)');
-    }
+    // La decisión (semáforo por zona y corredor) NO depende de la malla de
+    // lluvia: se pinta ya. La malla y las partículas cargan en segundo plano.
     if(mapReady){
-      RainCanvasSource.setData(gridWeatherData);
-      setLayerVis('rain-raster', layerVis.rain);
       setLayerVis('corridor-base', true);
       setLayerVis('zonas-hex-fill', false);
-      WindOverlay.setData(gridWeatherData);
-      if(windLayerEnabled) WindOverlay.mount(map); else WindOverlay.unmount();
+      applyZonaCirclePaint();
       refreshRiskLayers();
     }
-    ZONAS.forEach((z, i) => {
-      const fc = data[i];
-      if(!fc || !fc.daily){ z.semanas = [0,0,0,0,0,0,0]; return; }
-      const rain = fc.daily.precipitation_sum || [];
-      const wind = fc.daily.wind_speed_10m_max || [];
-      const gust = fc.daily.wind_gusts_10m_max || [];
-      const tmax = fc.daily.temperature_2m_max || [];
-      const prob = fc.daily.precipitation_probability_max || [];
-      const code = fc.daily.weather_code || [];
-      const risks = rain.map((r, di) => climaDayRisk(r||0, wind[di]||0, gust[di], tmax[di], code[di]));
-      z.semanas = risks.map(x => x.level);
-      z._climaRain = rain;
-      z._climaWind = wind;
-      z._climaGust = gust;
-      z._climaTmax = tmax;
-      z._climaProb = prob;
-      z._climaCode = code;
-      z._climaReasons = risks.map(x => x.reasons);
-    });
-    // Las fechas del pronóstico vienen de la API (zona horaria de CDMX) — no
-    // del reloj local del navegador, que puede estar en otro huso.
-    SEMANAS.length = 0;
-    const apiDays = (data[0] && data[0].daily && data[0].daily.time) ? data[0].daily.time : [];
-    if(apiDays.length >= 7){
-      apiDays.slice(0,7).forEach(d => SEMANAS.push(d));
-    } else {
-      const today = new Date();
-      for(let i=0;i<7;i++){
-        const d = new Date(today); d.setDate(d.getDate()+i);
-        SEMANAS.push(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'));
+    loadGridWeather((info) => {
+      if(info.phase === 'fetch') gridLoadStatus = 'lote '+info.current+'/'+info.total;
+      else if(info.phase === 'fill') gridLoadStatus = 'rellenando '+info.current+'/'+info.total;
+    }).then(grid => {
+      gridLoadStatus = null;
+      if(grid){
+        const totalCells = generateMexicoGrid().length;
+        gridCoveragePct = Math.round(grid.length / totalCells * 100);
       }
-    }
+      if(mapReady && mode === 'clima' && gridWeatherData){
+        RainCanvasSource.setData(gridWeatherData);
+        RainCanvasSource.setDayIdx(wk);
+        setLayerVis('rain-raster', layerVis.rain);
+        WindOverlay.setData(gridWeatherData);
+        WindOverlay.setDayIdx(wk);
+        if(windLayerEnabled) WindOverlay.mount(map); else WindOverlay.unmount();
+      }
+      updateClimaFreshness();
+    });
+    processClimaZones(data);
     wk = 0;
+    initSites();
   } else {
     mode = 'protestas';
     if(brand) brand.textContent = 'Protestómetro';
@@ -2257,6 +2643,7 @@ async function setMode(newMode){
       setLayerVis('corridor-base', true);
       setLayerVis('zonas-hex-fill', true);
       WindOverlay.unmount();
+      applyZonaCirclePaint();
       refreshRiskLayers();
     }
     if(savedProtestasSemanas){
@@ -2277,9 +2664,10 @@ async function setMode(newMode){
   if(map) refreshMap();
   renderAll();
   if(sel) showDet(sel);
-  // Last brushstroke before fading out — only on entry to clima mode.
+  updateClimaFreshness();
+  // El semáforo ya está en pantalla; la malla sigue cargando en 2º plano.
   if(mode === 'clima'){
-    climaLoader.setPhase('Renderizando malla y partículas');
+    climaLoader.setPhase('Semáforo listo');
     climaLoader.setProgress(1, 1);
     setTimeout(() => climaLoader.hide(), 350);
   }
@@ -2299,6 +2687,7 @@ function getProtestasSEMANAS(){
 }
 function buildTickerItems(){
   const items = [];
+  if(PRODUCT === 'clima') return buildClimaTickerItems(items);
   // ─── Protestas: latest week of the real CSV ──────────────────────────
   const protestasWeeks = getProtestasSEMANAS();
   const latestIdx = protestasWeeks.length - 1;
@@ -2343,6 +2732,9 @@ function buildTickerItems(){
       }
     });
   }
+  return buildClimaTickerItems(items);
+}
+function buildClimaTickerItems(items){
   // ─── Clima: lluvia/ráfagas severas próximos 7 días (mismos umbrales que el semáforo) ──
   const dayPhrase = (i) => i===0 ? 'hoy' : i===1 ? 'mañana' : ('en '+i+' días');
   if(weatherData){
@@ -2498,7 +2890,7 @@ function applyHistoricoCopy(){
   if(title) title.textContent = isClima ? 'Pronóstico 7 días' : 'Predicción semanal';
   const intro = document.getElementById('hist-intro');
   if(intro) intro.textContent = isClima
-    ? '7 días de pronóstico por zona, ordenadas por lluvia máxima. Click en barra para saltar a ese día.'
+    ? '7 días de semáforo por zona, ordenadas por severidad (lluvia, viento, ráfagas o calor). Click en una barra para saltar a ese día.'
     : 'Predicción semanal de afectaciones por protestas. Cada columna es la predicción para esa semana, con histórico de 18 semanas. Click en barra para saltar a otra semana.';
   const corrIntro = document.getElementById('corr-intro');
   if(corrIntro) corrIntro.textContent = isClima
@@ -2510,20 +2902,24 @@ function applyHistoricoCopy(){
   if(capasC) capasC.style.display = isClima ? 'block' : 'none';
   const wnavT = document.getElementById('wnav-title');
   if(wnavT) wnavT.textContent = isClima ? 'Día en análisis' : 'Semana en análisis';
+  const pb = document.getElementById('parte-btn');
+  if(pb) pb.style.display = isClima ? 'block' : 'none';
+  const dsaLbl = document.getElementById('dsa-lbl');
+  if(dsaLbl) dsaLbl.textContent = isClima ? 'Días con alerta (7)' : 'Semanas activas';
+  const dsmLbl = document.getElementById('dsm-lbl');
+  if(dsmLbl) dsmLbl.textContent = isClima ? 'Peor nivel (7d)' : 'Nivel máx';
+  const fAlert = document.querySelector('[data-filter="alert"] .cbox-label');
+  if(fAlert) fAlert.textContent = isClima ? 'En alerta el día visto' : 'En alerta esta semana';
+  const fHist = document.querySelector('[data-filter="historic"] .cbox-label');
+  if(fHist) fHist.textContent = isClima ? 'Alerta en otros días' : 'Con historial de alertas';
 
   const histLegend = document.getElementById('hist-legend');
   if(histLegend){
     if(isClima){
       histLegend.innerHTML =
-        '<div style="display:flex;flex-direction:column;gap:2px">'
-        +'<div style="height:6px;width:200px;border-radius:2px;background:linear-gradient(to right,'
-          +'rgba(58,168,255,0.45) 0%,'
-          +'rgba(62,192,173,0.7) 25%,'
-          +'rgba(228,194,73,0.78) 45%,'
-          +'rgba(255,149,48,0.85) 70%,'
-          +'rgba(224,48,32,0.92) 100%)"></div>'
-        +'<div style="display:flex;justify-content:space-between;width:200px;font-size:9px;color:var(--text-dim)"><span>1</span><span>10</span><span>18</span><span>28</span><span>50+ mm</span></div>'
-        +'</div>';
+        '<span><span style="display:inline-block;width:8px;height:8px;background:var(--red);border-radius:1px;vertical-align:middle;margin-right:3px;"></span>Disrupción alta</span>'
+        +'<span><span style="display:inline-block;width:8px;height:8px;background:var(--aleph-yellow);border-radius:1px;vertical-align:middle;margin-right:3px;"></span>Retrasos probables</span>'
+        +'<span><span style="display:inline-block;width:8px;height:8px;background:rgba(255,255,255,0.08);border:1px solid var(--border);border-radius:1px;vertical-align:middle;margin-right:3px;"></span>Sin afectación</span>';
     } else {
       histLegend.innerHTML =
         '<span><span style="display:inline-block;width:8px;height:8px;background:var(--red);border-radius:1px;vertical-align:middle;margin-right:3px;"></span>Rojo</span>'
@@ -2585,6 +2981,54 @@ document.querySelectorAll('#mode-toggle button').forEach(btn => {
 // Wind layer toggle (only relevant in clima mode — button lives inside #clima-legend)
 const windBtn = document.getElementById('wind-toggle');
 if(windBtn) windBtn.addEventListener('click', toggleWindLayer);
+
+// Alta de sitios
+const siteAddBtn = document.getElementById('site-add');
+if(siteAddBtn) siteAddBtn.addEventListener('click', startAddSite);
+
+// ── Parte operativo (texto plano al portapapeles) ───────────────────────
+function buildParteOperativo(){
+  const lines = ['CLIMÓMETRO · ' + fmtD(SEMANAS[wk]) + (wk === 0 ? ' (hoy)' : '')];
+  sites.forEach((s, i) => {
+    const r = siteRisk(i, wk);
+    if(!r) return;
+    const ico = r.level === 2 ? '🔴' : r.level === 1 ? '🟡' : '🟢';
+    let line = ico + ' ' + s.name + ' — ' + (r.reasons.length ? r.reasons.join(', ') : 'sin afectación prevista');
+    const act = playbookFor(r.level, r.cat);
+    if(act) line += ' → ' + act;
+    const cone = siteInCone(s);
+    if(cone) line += ' · 🌀 dentro del cono de ' + cone.name;
+    lines.push(line);
+  });
+  const redZones = ZONAS.filter(z => z.semanas[wk] === 2);
+  redZones.slice(0, 8).forEach(z => lines.push('🔴 ' + z.zm + ' — ' + (((z._climaReasons || [])[wk]) || []).join(', ')));
+  if(redZones.length > 8) lines.push('… y ' + (redZones.length - 8) + ' zonas más en disrupción alta');
+  if(corridorClimaLevels){
+    CORRIDORS.forEach((c, ci) => {
+      if(corridorClimaLevels[ci][wk] === 2){
+        const st = corridorClimaStats[ci][wk];
+        lines.push('🔴 Corredor ' + c.id + ' (' + c.name + ') — ' + st.rain.toFixed(0) + ' mm máx en ruta' + (st.gust >= 30 ? ', ráfagas ' + st.gust.toFixed(0) + ' km/h' : ''));
+      }
+    });
+  }
+  (riskFeeds.storms || []).filter(stormNearMexico).forEach(s =>
+    lines.push('🌀 ' + (STORM_TYPE_ES[s.type] || 'Ciclón') + ' ' + s.name + ' — viento ' + (ktToKmh(s.maxwindKt) || '?') + ' km/h · aviso #' + s.advisory + ' NHC'));
+  ZONAS.filter(z => z._floodRatio).forEach(z =>
+    lines.push('≋ ' + z.zm + ' — crecida fluvial ' + z._floodRatio.toFixed(1) + '× la mediana mensual (GloFAS)'));
+  if(lines.length === 1) lines.push('🟢 Sin afectaciones relevantes previstas a nivel nacional.');
+  lines.push('');
+  lines.push('Fuentes: Open-Meteo · NHC/NOAA · USGS · GloFAS. Generado ' + new Date().toLocaleString('es-MX', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' }) + '.');
+  return lines.join('\n');
+}
+const parteBtn = document.getElementById('parte-btn');
+if(parteBtn) parteBtn.addEventListener('click', () => {
+  const txt = buildParteOperativo();
+  const done = () => {
+    parteBtn.textContent = '✓ Copiado — listo para pegar';
+    setTimeout(() => { parteBtn.textContent = '⧉ Copiar parte operativo del día'; }, 2200);
+  };
+  if(navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(done).catch(() => {});
+});
 
 // Refresh the "actualizado hace X" line every minute while clima is open
 setInterval(() => { if(mode === 'clima') updateClimaFreshness(); }, 60000);
@@ -2965,7 +3409,10 @@ function showDet(z){
     lvlEl.textContent = lvlTxt;
     lvlEl.style.color = col;
     const reasons = (z._climaReasons && z._climaReasons[wk]) || [];
-    document.getElementById('clmwhy').textContent = reasons.length ? ('Motivo: '+reasons.join(' · ')) : '';
+    const action = playbookFor(n, z._climaCat ? z._climaCat[wk] : null);
+    document.getElementById('clmwhy').innerHTML =
+      (reasons.length ? ('Motivo: '+reasons.join(' · ')) : '')
+      + (action ? '<div style="margin-top:5px;color:rgba(255,255,255,0.75)"><span style="color:var(--aleph-yellow);font-weight:600">Sugerencia:</span> '+action+'</div>' : '');
     const floodEl = document.getElementById('clmflood');
     if(z._floodRatio){
       floodEl.style.display = 'block';
@@ -2974,6 +3421,21 @@ function showDet(z){
     } else {
       floodEl.style.display = 'none';
     }
+  }
+  // Contexto histórico (solo clima): qué tan expuesta ha estado ESTA zona.
+  const histBlock = document.getElementById('clima-hist-block');
+  const zh = ZM_HIST[String(z.cve)];
+  if(isClima && zh){
+    histBlock.style.display = 'block';
+    const fEl = document.getElementById('clhf');
+    fEl.textContent = zh.f || 'Bajo';
+    fEl.style.color = zh.f === 'Muy alto' ? '#ff8070' : zh.f === 'Alto' ? '#ff9530' : zh.f === 'Medio' ? '#f5d066' : '#88c4a8';
+    document.getElementById('clhh').textContent = zh.h + ' desde 1980';
+    document.getElementById('clhl').textContent = zh.hl
+      ? ('Último: '+zh.hl+' · cat. máxima del ciclón, no al pasar. Fuentes: CENAPRED 2016 · HURDAT2.')
+      : 'Sin ciclones mayores a <100 km desde 1980. Fuentes: CENAPRED 2016 · HURDAT2.';
+  } else {
+    histBlock.style.display = 'none';
   }
   const nearby = corridorsNearZM(z, 80);
   const corrEl = document.getElementById('dcorr-list');
@@ -3033,23 +3495,42 @@ function renderAll(){
   const counts = SEMANAS.map((_, i) => ZONAS.filter(z => z.semanas[i] > 0).length);
   const reds   = SEMANAS.map((_, i) => ZONAS.some(z => z.semanas[i] === 2));
   const peak = Math.max(1, ...counts);
-  const dotsHTML = SEMANAS.map((s, i) => {
-    const c = counts[i];
-    const h = c === 0 ? 4 : Math.max(6, Math.round((c / peak) * 26));
-    const bg = c === 0 ? 'rgba(255,255,255,0.10)' : (reds[i] ? '#e03020' : '#e4c249');
-    const title = fmtD(s) + ' · ' + c + (c === 1 ? ' zona en alerta' : ' zonas en alerta');
-    return '<div class="wdot'+(i===wk?' on':'')+'" style="height:'+h+'px;background:'+bg+'" onclick="jmpW('+i+')" title="'+title+'"></div>';
-  }).join('');
-  document.getElementById('dots-r').innerHTML = dotsHTML;
+  const dotsEl = document.getElementById('dots-r');
+  if(isClima){
+    // Chips de día: la tira ES el resumen de la semana (peor nivel + nº de zonas).
+    const DOW = ['DOM','LUN','MAR','MIÉ','JUE','VIE','SÁB'];
+    const chips = SEMANAS.map((s, i) => {
+      const c = counts[i];
+      const col = c === 0 ? '#3ecf6e' : (reds[i] ? '#e03020' : '#e4c249');
+      const lbl = i === 0 ? 'HOY' : (i === 1 ? 'MAÑ' : DOW[new Date(s+'T12:00:00').getDay()]);
+      const title = fmtD(s) + ' · ' + c + (c === 1 ? ' zona en alerta' : ' zonas en alerta');
+      return '<div class="day-chip'+(i===wk?' on':'')+'" onclick="jmpW('+i+')" role="button" tabindex="0" title="'+title+'">'
+        + '<span class="dc-day">'+lbl+'</span>'
+        + '<span class="dc-dot" style="background:'+col+'"></span>'
+        + '<span class="dc-n">'+(c || '—')+'</span></div>';
+    }).join('');
+    dotsEl.innerHTML = '<div class="day-chips">'+chips+'</div>';
+    dotsEl.style.height = 'auto';
+  } else {
+    const dotsHTML = SEMANAS.map((s, i) => {
+      const c = counts[i];
+      const h = c === 0 ? 4 : Math.max(6, Math.round((c / peak) * 26));
+      const bg = c === 0 ? 'rgba(255,255,255,0.10)' : (reds[i] ? '#e03020' : '#e4c249');
+      const title = fmtD(s) + ' · ' + c + (c === 1 ? ' zona en alerta' : ' zonas en alerta');
+      return '<div class="wdot'+(i===wk?' on':'')+'" style="height:'+h+'px;background:'+bg+'" onclick="jmpW('+i+')" title="'+title+'"></div>';
+    }).join('');
+    dotsEl.innerHTML = dotsHTML;
+    dotsEl.style.height = '';
+  }
 
   // Changes
   const d = computeDeltas(wk);
   const totalChanges = d.new.length + d.up.length + d.down.length + d.cleared.length;
   const changesEl = document.getElementById('changes-list');
   if(wk === 0){
-    changesEl.innerHTML = '<div class="change-empty">Primera semana — sin comparación</div>';
+    changesEl.innerHTML = '<div class="change-empty">'+(isClima ? 'Hoy — el punto de partida del pronóstico' : 'Primera semana — sin comparación')+'</div>';
   } else if(totalChanges === 0){
-    changesEl.innerHTML = '<div class="change-empty">Sin cambios respecto a la semana anterior</div>';
+    changesEl.innerHTML = '<div class="change-empty">'+(isClima ? 'Sin cambios respecto al día anterior' : 'Sin cambios respecto a la semana anterior')+'</div>';
   } else {
     const rows = [];
     d.new.forEach(z => rows.push('<div class="change-row new" onclick="clkZ('+z.cve+')"><span class="change-icon up">●</span><span class="change-name">'+z.zm+'</span><span class="change-tag">NUEVA</span></div>'));
@@ -3062,6 +3543,7 @@ function renderAll(){
   renderZMList();
   renderCorridors();
   renderHistory();
+  if(mode === 'clima'){ renderSitesPanel(); refreshSitesLayer(); }
 }
 
 function renderZMList(){
@@ -3090,16 +3572,17 @@ function renderZMList(){
   const alerted = filtered.filter(z => z.semanas[wk] > 0);
   const others = filtered.filter(z => z.semanas[wk] === 0);
 
+  const unit = (mode === 'clima') ? 'd' : 's';
   const mkRow = z => {
     const n = z.semanas[wk];
     const dot = n===2?'#e03020':n===1?'#e4c249':'rgba(255,255,255,0.14)';
     const isSel = sel && sel.cve === z.cve;
-    return '<div class="zmr'+(isSel?' sel':'')+(n===0?' dim':'')+'" onclick="clkZ('+z.cve+')"><div class="zd" style="background:'+dot+'"></div><div class="zn">'+z.zm+'</div><div class="zw">'+(z.alertas>0?z.alertas+'s':'')+'</div></div>';
+    return '<div class="zmr'+(isSel?' sel':'')+(n===0?' dim':'')+'" onclick="clkZ('+z.cve+')"><div class="zd" style="background:'+dot+'"></div><div class="zn">'+z.zm+'</div><div class="zw">'+(z.alertas>0?z.alertas+unit:'')+'</div></div>';
   };
 
   let html = '';
   if(alerted.length > 0){
-    html += '<div class="list-hdr">En alerta esta semana</div>';
+    html += '<div class="list-hdr">'+(mode === 'clima' ? 'En alerta este día' : 'En alerta esta semana')+'</div>';
     html += alerted.map(mkRow).join('');
   }
   if(others.length > 0){
@@ -3148,25 +3631,32 @@ function renderHistory(){
   }
 
   if(isClima){
+    // Misma escala que el mapa: barras por NIVEL del semáforo (no solo lluvia),
+    // rankeadas por peor nivel y días en alerta. Una zona roja por ráfagas o
+    // calor aparece aquí aunque no llueva ni una gota.
     const ranked = ZONAS
-      .map(z => ({ z, maxMm: Math.max(...((z._climaRain) || [0])) }))
-      .filter(x => x.maxMm > 0.3)
-      .sort((a,b) => b.maxMm - a.maxMm);
-    const html = ranked.map(({z, maxMm}) => {
-      const rains = z._climaRain || [];
+      .map(z => ({
+        z,
+        maxLvl: Math.max(...z.semanas),
+        days: z.semanas.filter(v => v > 0).length,
+        maxMm: Math.max(...((z._climaRain) || [0]))
+      }))
+      .filter(x => x.maxLvl > 0)
+      .sort((a,b) => b.maxLvl - a.maxLvl || b.days - a.days || b.maxMm - a.maxMm);
+    const html = ranked.map(({z, maxLvl, days}) => {
       const bars = SEMANAS.map((_, i) => {
-        const mm = rains[i];
-        const cssColor = rainCssColor(mm);
-        const bg = cssColor || 'rgba(255,255,255,0.06)';
-        const bd = cssColor ? '' : 'border:1px solid rgba(255,255,255,0.10)';
-        const hl = i===wk ? 'outline:2px solid var(--aleph-yellow);outline-offset:1px;box-shadow:0 0 6px rgba(228,194,73,0.5);' : '';
-        const title = ((mm!=null?mm.toFixed(1):'0.0')+' mm · '+fmtD(SEMANAS[i]));
-        return '<div class="hist-bar" style="background:'+bg+';'+bd+';'+hl+'" onclick="event.stopPropagation();jmpW('+i+')" title="'+title+'"></div>';
+        const v = z.semanas[i] || 0;
+        const c = v===2 ? '#e03020' : v===1 ? '#e4c249' : 'rgba(255,255,255,0.08)';
+        const bd = v===0 ? 'border:1px solid rgba(255,255,255,0.10)' : '';
+        const hl = i===wk ? 'outline:2px solid var(--aleph-yellow);outline-offset:1px;' : '';
+        const why = (z._climaReasons && z._climaReasons[i] && z._climaReasons[i].length) ? ' · '+z._climaReasons[i].join(', ') : '';
+        return '<div class="hist-bar" style="background:'+c+';'+bd+';'+hl+'" onclick="event.stopPropagation();jmpW('+i+')" title="'+fmtD(SEMANAS[i])+why+'"></div>';
       }).join('');
-      return '<div class="hist-row"><div class="hist-name" onclick="clkZ('+z.cve+')">'+z.zm+'</div><div class="hist-bars">'+bars+'</div><div class="hist-count">'+maxMm.toFixed(0)+' mm</div></div>';
+      const cnt = '<span style="color:'+(maxLvl===2?'#ff8070':'#f5d066')+'">'+days+'d alerta</span>';
+      return '<div class="hist-row"><div class="hist-name" onclick="clkZ('+z.cve+')">'+z.zm+'</div><div class="hist-bars">'+bars+'</div><div class="hist-count">'+cnt+'</div></div>';
     }).join('');
-    const dryCount = ZONAS.length - ranked.length;
-    el.innerHTML = html + (dryCount > 0 ? '<div style="padding:14px 16px;font-size:11px;color:var(--text-dim);font-style:italic;">+ '+dryCount+' zonas sin lluvia significativa esperada</div>' : '');
+    const clearCount = ZONAS.length - ranked.length;
+    el.innerHTML = html + (clearCount > 0 ? '<div style="padding:14px 16px;font-size:11px;color:var(--text-dim);font-style:italic;">+ '+clearCount+' zonas sin afectación prevista en 7 días</div>' : '');
     return;
   }
 
@@ -3267,6 +3757,22 @@ renderAll();
 renderTicker();
 tickerState.rafId = requestAnimationFrame(animateTicker);
 
+// Metodología del semáforo en el menú — generada desde CLIMA_THRESHOLDS para
+// que la UI nunca cuente umbrales distintos a los del código.
+(function renderMethodology(){
+  const el = document.getElementById('hm-method');
+  if(!el) return;
+  const T = CLIMA_THRESHOLDS;
+  el.innerHTML =
+    'Cada zona y corredor se evalúa por día contra umbrales operativos:<br>'
+    +'<span style="color:var(--aleph-yellow)">● Retrasos probables</span> — lluvia ≥'+T.yellowRain+' mm, viento ≥'+T.yellowWind+' km/h, ráfagas ≥'+T.yellowGust+' km/h, calor ≥'+T.yellowHeat+'°C, niebla o tormenta eléctrica.<br>'
+    +'<span style="color:var(--red)">● Disrupción alta</span> — lluvia ≥'+T.redRain+' mm, viento ≥'+T.redWind+' km/h, ráfagas ≥'+T.redGust+' km/h o calor ≥'+T.redHeat+'°C.<br>'
+    +'Se aplica el criterio más severo que se cumpla y el nivel siempre indica <em>qué variable</em> lo disparó. Un corredor toma el peor punto de su ruta.';
+})();
+
+// Climómetro standalone: entrar directo a modo clima al cargar.
+if(PRODUCT === 'clima') setMode('clima');
+
 // ════════════════════════════════════════════════════════════════════════
 // Map init
 // ════════════════════════════════════════════════════════════════════════
@@ -3312,6 +3818,7 @@ try {
     map.addSource('hurr-track',  { type:'geojson', data: hurricanesFC('track') });
     map.addSource('hurr-points', { type:'geojson', data: hurricanesFC('points') });
     map.addSource('quakes',      { type:'geojson', data: quakesFC() });
+    map.addSource('sites',       { type:'geojson', data: sitesFC() });
 
     // ── Layers (bottom → top) ─────────────────────────────────────────────
     // Insert above the basemap roads label layer so our labels render on top.
@@ -3495,6 +4002,32 @@ try {
       }
     });
 
+    // Mis sitios — instalaciones del usuario, siempre por encima del resto.
+    map.addLayer({
+      id: 'sites-circle', type: 'circle', source: 'sites',
+      layout: { visibility: 'none' },
+      paint: {
+        'circle-radius': 9,
+        'circle-color': ['match', ['get','level'], 2, '#e03020', 1, '#e4c249', '#3ecf6e'],
+        'circle-stroke-color': '#0a0a0a',
+        'circle-stroke-width': 2.2,
+        'circle-opacity': 0.95
+      }
+    });
+    map.addLayer({
+      id: 'sites-label', type: 'symbol', source: 'sites',
+      layout: {
+        visibility: 'none',
+        'text-field': ['get','name'],
+        'text-font': ['Open Sans Semibold', 'Arial Unicode MS Bold'],
+        'text-size': 11,
+        'text-offset': [0, 1.3],
+        'text-anchor': 'top',
+        'text-allow-overlap': true
+      },
+      paint: { 'text-color': '#0a0a0a', 'text-halo-color': 'rgba(255,255,255,0.95)', 'text-halo-width': 2.2 }
+    });
+
     // Selection ring — single dark ring around the selected ZM (visible on light bg).
     map.addLayer({
       id: 'selection-ring',
@@ -3519,15 +4052,33 @@ try {
     };
     const hoverOut = () => { map.getCanvas().style.cursor = ''; hoverPopup.remove(); };
     const onClick = (e) => {
+      if(addingSite) return; // el clic es para colocar un sitio, no para seleccionar zona
       const cve = e.features[0].properties.cve;
       const z = ZONAS.find(z => z.cve === cve);
       if(z) doSelect(z);
     };
+    map.on('mouseenter', 'sites-circle', (e) => {
+      map.getCanvas().style.cursor = 'pointer';
+      const p = e.features[0].properties;
+      const r = siteRisk(p.idx, wk);
+      const [lbl, col] = lvlMeta(r ? r.level : 0);
+      hoverPopup.setLngLat(e.lngLat).setHTML(
+        '<div class="tn">'+escHTML(p.name)+'</div>'
+        + '<div class="tl" style="color:'+col+'">'+lbl+'</div>'
+        + '<div class="ti">'+((r && r.reasons.length) ? escHTML(r.reasons.join(' · ')) : 'sin afectación prevista')+'</div>'
+      ).addTo(map);
+    });
+    map.on('mouseleave', 'sites-circle', () => { map.getCanvas().style.cursor=''; hoverPopup.remove(); });
+    map.on('click', 'sites-circle', () => { if(!addingSite) switchPanel('sitios'); });
     ['zonas-circle','zonas-hex-fill'].forEach(id => {
       map.on('mouseenter', id, hoverIn);
       map.on('mouseleave', id, hoverOut);
       map.on('click', id, onClick);
     });
+    // Alta de sitios: registrado DESPUÉS de los handlers de zona para que el
+    // clic que coloca un sitio no seleccione también la zona debajo (los
+    // handlers de capa corren primero y respetan el guard de addingSite).
+    map.on('click', (e) => { if(addingSite && mode === 'clima') addSiteAt(e.lngLat); });
 
     // Tooltips de riesgo externo (huracanes y sismos)
     map.on('mouseenter', 'hurr-points-circle', (e) => {
@@ -3557,6 +4108,20 @@ try {
     mapReady = true;
     refreshMap();
     refreshRiskLayers();
+    // Si el arranque en clima terminó antes de que Mapbox cargara, el bloque
+    // de capas de setMode no corrió con mapReady — sincronizamos aquí.
+    if(mode === 'clima'){
+      setLayerVis('rain-raster', layerVis.rain);
+      setLayerVis('zonas-hex-fill', false);
+      applyZonaCirclePaint();
+      if(gridWeatherData){
+        RainCanvasSource.setData(gridWeatherData);
+        RainCanvasSource.setDayIdx(wk);
+        WindOverlay.setData(gridWeatherData);
+        WindOverlay.setDayIdx(wk);
+      }
+      if(windLayerEnabled) WindOverlay.mount(map);
+    }
     setTimeout(() => map.resize(), 100);
     setTimeout(() => map.resize(), 500);
   });
