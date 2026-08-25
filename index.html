@@ -860,7 +860,10 @@ canvas.wind-raster{
             <div class="hl-week" id="hl-week">ESTA SEMANA</div>
             <div class="hl-text" id="hl-text">—</div>
             <div id="hl-fresh" style="font-size:9px;color:var(--text-dim);margin-top:8px;letter-spacing:0.03em;display:flex;align-items:center;gap:8px;flex-wrap:wrap"></div>
-            <button id="parte-btn" type="button" style="display:none;margin-top:10px;width:100%;padding:7px 10px;background:rgba(255,255,255,0.05);border:1px solid var(--border-strong);border-radius:5px;color:rgba(255,255,255,0.85);font-family:'Inter',sans-serif;font-size:11px;font-weight:600;cursor:pointer;letter-spacing:0.03em">⧉ Copiar parte operativo del día</button>
+            <div id="parte-btns" style="display:none;margin-top:10px;gap:6px" class="parte-row">
+              <button id="parte-btn" type="button" style="flex:1;padding:7px 10px;background:rgba(255,255,255,0.05);border:1px solid var(--border-strong);border-radius:5px;color:rgba(255,255,255,0.85);font-family:'Inter',sans-serif;font-size:11px;font-weight:600;cursor:pointer;letter-spacing:0.03em">⧉ Copiar parte del día</button>
+              <button id="parte-wa-btn" type="button" style="flex:1;padding:7px 10px;background:rgba(62,207,110,0.10);border:1px solid rgba(62,207,110,0.4);border-radius:5px;color:#7fdca4;font-family:'Inter',sans-serif;font-size:11px;font-weight:600;cursor:pointer;letter-spacing:0.03em">Enviar por WhatsApp</button>
+            </div>
           </div>
           <div class="section">
             <div class="section-t" id="wnav-title">Semana en análisis</div>
@@ -1126,6 +1129,7 @@ canvas.wind-raster{
           <div class="dops-row"><span>Nivel logístico</span><span class="pattern" id="clmlvl">—</span></div>
           <div id="clmwhy" style="font-size:10px;color:var(--text-dim);margin-top:4px;line-height:1.4"></div>
           <div id="clmflood" style="display:none;margin-top:6px;padding:6px 8px;border-radius:4px;background:rgba(58,168,255,0.10);border:1px solid rgba(58,168,255,0.30);font-size:10px;color:#7cc0ff;line-height:1.4"></div>
+          <div id="clmsiat"></div>
         </div>
         <div class="dops" id="clima-hist-block" style="display:none">
           <div class="dops-t">Exposición histórica de la zona</div>
@@ -1291,6 +1295,14 @@ function buildHeadline(weekIdx, compact){
   if(activeStorms.length > 0){
     const names = activeStorms.map(s => s.name.split(' ').pop()).join(', ');
     html += '<div class="hl-secondary"><span class="hl-num red">'+activeStorms.length+'</span> ciclón'+(activeStorms.length>1?'es':'')+' tropical'+(activeStorms.length>1?'es':'')+' activo'+(activeStorms.length>1?'s':'')+' ('+names+') · fuente NHC.</div>';
+  }
+  // SIAT-CT estimado (clima) — la bandera oficial de Protección Civil
+  if(isClima){
+    const summ = siatSummary();
+    if(summ && summ.best.meta.rank >= 2){
+      const m = summ.best.meta;
+      html += '<div class="hl-secondary">SIAT-CT estimado: <span style="color:'+m.color+';font-weight:700">'+m.name+'</span> en '+summ.count+' zona'+(summ.count>1?'s':'')+' ('+escHTML(summ.best.storm.name)+').</div>';
+    }
   }
 
   // DELTA SECTION (if not first period and any changes)
@@ -1757,6 +1769,91 @@ function stormNearMexico(s){
 }
 const ktToKmh = kt => kt == null ? null : Math.round(kt * 1.852);
 const STORM_TYPE_ES = { TD:'Depresión tropical', TS:'Tormenta tropical', HU:'Huracán', MH:'Huracán mayor', STD:'Depresión subtropical', STS:'Tormenta subtropical', PTC:'Ciclón post-tropical' };
+
+// ── SIAT-CT ESTIMADO ────────────────────────────────────────────────────
+// Matriz oficial de acercamiento del Sistema de Alerta Temprana para
+// Ciclones Tropicales (SINAPROC/CNPC): intensidad (escala 0–5) × horas
+// estimadas para el impacto de la línea de vientos de 63 km/h. Nosotros la
+// evaluamos con la trayectoria pronosticada del NHC — es una ESTIMACIÓN de
+// apoyo operativo; la declaratoria oficial la emite Protección Civil.
+const SIAT_BINS = [72, 60, 48, 36, 24, 18, 12, 6]; // fronteras de horas; >72 → col 0, <6 → col 8
+const SIAT_ACERCAMIENTO = [
+  ['A','V','V','V','V','Y','Y','N','R'],  // escala 0 (DT/TT)
+  ['A','V','V','V','Y','Y','N','N','R'],  // cat 1
+  ['A','V','V','Y','Y','N','N','R','R'],  // cat 2
+  ['A','V','Y','Y','N','N','R','R','R'],  // cat 3
+  ['A','Y','Y','N','N','R','R','R','R'],  // cat 4
+  ['A','Y','Y','N','R','R','R','R','R']   // cat 5
+];
+const SIAT_META = {
+  A: { rank:1, name:'AZUL · Aviso',        color:'#1d6fc2', action:'Mantenerse informado; boletines cada 24 h.' },
+  V: { rank:2, name:'VERDE · Prevención',  color:'#3ecf6e', action:'Revisar planes, directorios y refugios; boletines cada 12 h.' },
+  Y: { rank:3, name:'AMARILLA · Preparación', color:'#e4c249', action:'Instalar centros de coordinación; preparar posible evacuación; boletines cada 6 h.' },
+  N: { rank:4, name:'NARANJA · Alarma',    color:'#ff9530', action:'Sesión permanente del comité de emergencias; resguardo de población vulnerable; boletines cada 3 h.' },
+  R: { rank:5, name:'ROJA · Afectación',   color:'#e03020', action:'Resguardo total; suspender operación en zona; atender instrucciones de la autoridad.' }
+};
+// Radio del área afectable (km) por escala — aproxima la línea de vientos de 63 km/h.
+const SIAT_RADIUS = [200, 220, 240, 260, 280, 300];
+function siatForPoint(lat, lng){
+  let best = null;
+  (riskFeeds.storms || []).forEach(s => {
+    const pts = (s.points && s.points.features) ? s.points.features
+      .filter(f => f.properties && f.properties.tau != null)
+      .sort((a,b) => a.properties.tau - b.properties.tau) : [];
+    if(pts.length < 2) return;
+    const escala = Math.max(0, Math.min(5, s.category || 0));
+    const radius = SIAT_RADIUS[escala];
+    // distancia en cada punto de pronóstico + mínima sobre segmentos
+    let minD = 1e9, minTau = null, d0 = null;
+    for(let i = 0; i < pts.length; i++){
+      const [lo, la] = pts[i].geometry.coordinates;
+      const d = Math.hypot((lo - lng) * 111 * Math.cos(lat * Math.PI/180), (la - lat) * 111);
+      if(pts[i].properties.tau === 0) d0 = d;
+      if(d < minD){ minD = d; minTau = pts[i].properties.tau; }
+    }
+    if(minD > 500) return; // fuera de área de interés
+    const approaching = d0 == null || minTau > 0;
+    let code;
+    if(!approaching){
+      // fase de alejamiento (simplificada por distancia actual)
+      code = d0 <= 150 ? 'Y' : d0 <= 300 ? 'V' : 'A';
+    } else if(minD > radius){
+      code = 'A'; // pasa cerca pero la línea de vientos no alcanzaría el punto
+    } else {
+      let col = 0;
+      while(col < SIAT_BINS.length && minTau < SIAT_BINS[col]) col++;
+      // minTau >= SIAT_BINS[0] (72) → col 0; minTau < 6 → col 8
+      col = (minTau >= 72) ? 0 : col;
+      code = SIAT_ACERCAMIENTO[escala][Math.min(col, 8)];
+    }
+    const cand = { code, meta: SIAT_META[code], storm: s, distKm: Math.round(minD), hours: minTau, approaching, escala };
+    if(!best || cand.meta.rank > best.meta.rank) best = cand;
+  });
+  return best;
+}
+// Resumen nacional: peor nivel SIAT-CT estimado entre las 79 zonas.
+function siatSummary(){
+  if(!riskFeeds.storms || !riskFeeds.storms.length) return null;
+  let best = null, count = 0;
+  ZONAS.forEach(z => {
+    const s = siatForPoint(z.lat, z.lng);
+    if(!s) return;
+    if(!best || s.meta.rank > best.meta.rank){ best = s; count = 1; }
+    else if(s.meta.rank === best.meta.rank) count++;
+  });
+  return best ? { best, count } : null;
+}
+function siatChipHTML(siat){
+  if(!siat) return '';
+  const m = siat.meta;
+  return '<div style="margin-top:6px;padding:6px 8px;border-radius:4px;background:'+m.color+'1a;border:1px solid '+m.color+'55;font-size:10px;line-height:1.45">'
+    + '<b style="color:'+m.color+'">SIAT-CT estimado: '+m.name+'</b> · '
+    + escHTML(STORM_TYPE_ES[siat.storm.type] || 'Ciclón')+' '+escHTML(siat.storm.name)
+    + (siat.approaching ? ' a ~'+siat.distKm+' km en su punto más cercano ('+(siat.hours != null ? '~'+siat.hours+' h' : '')+')' : ' alejándose')
+    + '<br><span style="color:rgba(255,255,255,0.75)">'+m.action+'</span>'
+    + '<br><span style="color:var(--text-dim)">Estimación con trayectoria NHC · la alerta oficial la declara Protección Civil (SIAT-CT).</span>'
+    + '</div>';
+}
 
 async function loadQuakes(){
   // M4.5+ últimos 7 días dentro del bbox nacional — el umbral operativo:
@@ -2231,6 +2328,7 @@ function renderSitesPanel(){
       +   (action ? '<br><span style="color:var(--aleph-yellow)">Sugerencia:</span> '+action : '')
       +   (histParts.length ? '<br>Exposición: '+histParts.join(' · ') : '')
       + '</div>'
+      + siatChipHTML(siatForPoint(s.lat, s.lng))
       + (cone ? '<div class="site-alert cone">🌀 Dentro del cono de pronóstico de '+escHTML(cone.name)+' (aviso #'+cone.advisory+' NHC). Activa protocolo de ciclón.</div>' : '')
       + '</div>';
   }).join('');
@@ -2856,16 +2954,18 @@ function buildClimaTickerItems(items){
       }
     });
   }
-  // ─── Ciclones tropicales activos (NHC) ───────────────────────────────
+  // ─── Ciclones tropicales activos (NHC) + nivel SIAT-CT estimado ──────
   if(riskFeeds.storms){
+    const summ = siatSummary();
     riskFeeds.storms.filter(stormNearMexico).forEach(s => {
       const wind = ktToKmh(s.maxwindKt);
+      const isSummStorm = summ && summ.best.storm.bin === s.bin && summ.best.meta.rank >= 3;
       items.push({
         cve: null,
         tone: 'red',
         icon: '🌀',
         loc: (STORM_TYPE_ES[s.type] || s.devLabel || 'Ciclón').toUpperCase()+' '+s.name.split(' ').pop().toUpperCase(),
-        detail: (wind ? 'Viento '+wind+' km/h · ' : '')+'aviso #'+s.advisory+' NHC'
+        detail: (isSummStorm ? 'SIAT-CT est. '+summ.best.meta.name.split(' ·')[0]+' en '+summ.count+' zona'+(summ.count>1?'s':'')+' · ' : (wind ? 'Viento '+wind+' km/h · ' : ''))+'aviso #'+s.advisory+' NHC'
       });
     });
   }
@@ -2978,8 +3078,8 @@ function applyHistoricoCopy(){
   if(capasC) capasC.style.display = isClima ? 'block' : 'none';
   const wnavT = document.getElementById('wnav-title');
   if(wnavT) wnavT.textContent = isClima ? 'Día en análisis' : 'Semana en análisis';
-  const pb = document.getElementById('parte-btn');
-  if(pb) pb.style.display = isClima ? 'block' : 'none';
+  const pb = document.getElementById('parte-btns');
+  if(pb) pb.style.display = isClima ? 'flex' : 'none';
   const dsaLbl = document.getElementById('dsa-lbl');
   if(dsaLbl) dsaLbl.textContent = isClima ? 'Días con alerta (7)' : 'Semanas activas';
   const dsmLbl = document.getElementById('dsm-lbl');
@@ -3074,8 +3174,14 @@ function buildParteOperativo(){
     if(act) line += ' → ' + act;
     const cone = siteInCone(s);
     if(cone) line += ' · 🌀 dentro del cono de ' + cone.name;
+    const st = siatForPoint(s.lat, s.lng);
+    if(st && st.meta.rank >= 3) line += ' · SIAT-CT est. ' + st.meta.name;
     lines.push(line);
   });
+  const siatS = siatSummary();
+  if(siatS && siatS.best.meta.rank >= 3){
+    lines.push('⚠ SIAT-CT estimado: ' + siatS.best.meta.name + ' en ' + siatS.count + ' zona' + (siatS.count>1?'s':'') + ' (' + siatS.best.storm.name + ') → ' + siatS.best.meta.action);
+  }
   const redZones = ZONAS.filter(z => z.semanas[wk] === 2);
   redZones.slice(0, 8).forEach(z => lines.push('🔴 ' + z.zm + ' — ' + (((z._climaReasons || [])[wk]) || []).join(', ')));
   if(redZones.length > 8) lines.push('… y ' + (redZones.length - 8) + ' zonas más en disrupción alta');
@@ -3100,10 +3206,16 @@ const parteBtn = document.getElementById('parte-btn');
 if(parteBtn) parteBtn.addEventListener('click', () => {
   const txt = buildParteOperativo();
   const done = () => {
-    parteBtn.textContent = '✓ Copiado — listo para pegar';
-    setTimeout(() => { parteBtn.textContent = '⧉ Copiar parte operativo del día'; }, 2200);
+    parteBtn.textContent = '✓ Copiado';
+    setTimeout(() => { parteBtn.textContent = '⧉ Copiar parte del día'; }, 2200);
   };
   if(navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(done).catch(() => {});
+});
+// Canal real del cliente: WhatsApp → reenvío a Teams. wa.me abre la app con
+// el parte prellenado; el usuario elige contacto/grupo y envía.
+const parteWaBtn = document.getElementById('parte-wa-btn');
+if(parteWaBtn) parteWaBtn.addEventListener('click', () => {
+  window.open('https://wa.me/?text=' + encodeURIComponent(buildParteOperativo()), '_blank', 'noopener');
 });
 
 // Refresh the "actualizado hace X" line every minute while clima is open
@@ -3501,6 +3613,7 @@ function showDet(z){
     } else {
       floodEl.style.display = 'none';
     }
+    document.getElementById('clmsiat').innerHTML = siatChipHTML(siatForPoint(z.lat, z.lng));
   }
   // Contexto histórico (solo clima): qué tan expuesta ha estado ESTA zona.
   const histBlock = document.getElementById('clima-hist-block');
@@ -3863,7 +3976,9 @@ tickerState.rafId = requestAnimationFrame(animateTicker);
     'Cada zona y corredor se evalúa por día contra umbrales operativos:<br>'
     +'<span style="color:var(--aleph-yellow)">● Retrasos probables</span> — lluvia ≥'+T.yellowRain+' mm, viento ≥'+T.yellowWind+' km/h, ráfagas ≥'+T.yellowGust+' km/h, calor ≥'+T.yellowHeat+'°C, niebla o tormenta eléctrica.<br>'
     +'<span style="color:var(--red)">● Disrupción alta</span> — lluvia ≥'+T.redRain+' mm, viento ≥'+T.redWind+' km/h, ráfagas ≥'+T.redGust+' km/h o calor ≥'+T.redHeat+'°C.<br>'
-    +'Se aplica el criterio más severo que se cumpla y el nivel siempre indica <em>qué variable</em> lo disparó. Un corredor toma el peor punto de su ruta.';
+    +'Se aplica el criterio más severo que se cumpla y el nivel siempre indica <em>qué variable</em> lo disparó. Un corredor toma el peor punto de su ruta.<br><br>'
+    +'<b>Ciclones — SIAT-CT estimado:</b> con la trayectoria pronosticada del NHC aplicamos la matriz oficial de acercamiento del SIAT-CT (intensidad × horas al impacto de la línea de vientos de 63 km/h) para estimar la alerta '
+    +'<span style="color:#1d6fc2">azul</span>/<span style="color:#3ecf6e">verde</span>/<span style="color:#e4c249">amarilla</span>/<span style="color:#ff9530">naranja</span>/<span style="color:#e03020">roja</span> por zona y sitio. La declaratoria oficial la emite la CNPC.';
 })();
 
 // Climómetro standalone: entrar directo a modo clima al cargar.
