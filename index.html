@@ -926,6 +926,10 @@ canvas.wind-raster{
             <button id="site-add" class="site-add-btn" type="button">+ Agregar sitio (clic en el mapa)</button>
           </div>
           <div id="sites-list"></div>
+          <div class="section">
+            <div class="section-t">Alertas por WhatsApp</div>
+            <div id="alertas-body"></div>
+          </div>
         </div>
       </div>
 
@@ -3161,6 +3165,84 @@ if(windBtn) windBtn.addEventListener('click', toggleWindLayer);
 // Alta de sitios
 const siteAddBtn = document.getElementById('site-add');
 if(siteAddBtn) siteAddBtn.addEventListener('click', startAddSite);
+
+// ── ALERTAS POR WHATSAPP (suscripción) ──────────────────────────────────
+// El registro viaja a /api/suscribir (Vercel Function) que lo reenvía a la
+// central de alertamiento; la configuración vive también en localStorage
+// para mostrar el estado y poder modificarla.
+const ALERTAS_KEY = 'climometro_alertas_v1';
+const ALERTA_TIPOS = [
+  { id:'ciclones',   on:true,  label:'Ciclones — SIAT-CT naranja o roja',        sub:'Ficha de alerta y cambios de etapa' },
+  { id:'clima',      on:true,  label:'Clima severo en mis sitios',               sub:'Bandera roja: lluvia, ráfagas o calor extremo' },
+  { id:'crecidas',   on:false, label:'Crecidas fluviales',                       sub:'Descarga ≥2× la mediana mensual (GloFAS)' },
+  { id:'sismos',     on:false, label:'Sismos M6+ cerca de mis sitios',           sub:'USGS, radio 150 km' },
+  { id:'checkdiario',on:true,  label:'Check diario "todo en orden"',             sub:'07:00 y 16:00, aunque no haya alertas' }
+];
+let alertasCfg = null;
+try { alertasCfg = JSON.parse(localStorage.getItem(ALERTAS_KEY) || 'null'); } catch(e){}
+function renderAlertas(){
+  const el = document.getElementById('alertas-body');
+  if(!el) return;
+  if(alertasCfg){
+    const tipos = ALERTA_TIPOS.filter(t => alertasCfg.tipos.includes(t.id)).map(t => t.label);
+    el.innerHTML =
+      '<div style="padding:10px 12px;border:1px solid rgba(62,207,110,0.4);background:rgba(62,207,110,0.08);border-radius:6px;font-size:12px;line-height:1.6">'
+      + '<b style="color:#7fdca4">● Alertas activas</b> para <b>'+escHTML(alertasCfg.telefono)+'</b>'
+      + (alertasCfg.entregado ? '' : ' <span style="color:var(--text-dim)">(registro local — se sincroniza con la central)</span>')
+      + '<br><span style="color:rgba(255,255,255,0.7)">'+tipos.map(escHTML).join(' · ')+'</span>'
+      + '</div>'
+      + '<div style="display:flex;gap:8px;margin-top:8px">'
+      + '<button type="button" id="alertas-edit" class="cl-toggle" style="flex:1;padding:6px">Modificar</button>'
+      + '<button type="button" id="alertas-off" class="cl-toggle" style="flex:1;padding:6px;color:var(--red-text)">Desactivar</button>'
+      + '</div>';
+    document.getElementById('alertas-edit').onclick = () => { const prev = alertasCfg; alertasCfg = null; renderAlertas(prev); };
+    document.getElementById('alertas-off').onclick = () => {
+      alertasCfg = null;
+      try { localStorage.removeItem(ALERTAS_KEY); } catch(e){}
+      renderAlertas();
+    };
+    return;
+  }
+  const prev = arguments[0] || null;
+  const marcados = prev ? prev.tipos : ALERTA_TIPOS.filter(t => t.on).map(t => t.id);
+  el.innerHTML =
+    '<div style="font-size:11px;color:rgba(255,255,255,0.6);line-height:1.5;margin-bottom:8px">Recibe en tu WhatsApp solo lo accionable: fichas naranja/roja con contexto y sugerencia, listas para reenviar a tu equipo.</div>'
+    + '<input id="alertas-tel" type="tel" inputmode="tel" placeholder="Número WhatsApp · 10 dígitos (MX) o +…" value="'+(prev ? escHTML(prev.telefono) : '')+'" '
+    + 'style="width:100%;padding:9px 11px;background:var(--bg-input);border:1px solid var(--border-strong);border-radius:6px;color:#fff;font-family:\'Inter\',sans-serif;font-size:13px;margin-bottom:6px" aria-label="Número de WhatsApp">'
+    + ALERTA_TIPOS.map(t =>
+        '<div class="cbox'+(marcados.includes(t.id) ? ' on' : '')+'" data-alerta="'+t.id+'" role="button" tabindex="0">'
+        + '<div class="cbox-square"></div>'
+        + '<div><div class="cbox-label">'+t.label+'</div><div class="field-sub">'+t.sub+'</div></div>'
+        + '</div>'
+      ).join('')
+    + '<button type="button" id="alertas-go" class="site-add-btn" style="margin-top:10px;border-style:solid">Activar alertas</button>'
+    + '<div id="alertas-msg" style="font-size:10.5px;color:var(--text-dim);margin-top:6px;line-height:1.4"></div>';
+  el.querySelectorAll('[data-alerta]').forEach(c => c.addEventListener('click', () => c.classList.toggle('on')));
+  document.getElementById('alertas-go').onclick = async () => {
+    const msg = document.getElementById('alertas-msg');
+    const tel = document.getElementById('alertas-tel').value.trim();
+    const tipos = [...el.querySelectorAll('[data-alerta].on')].map(c => c.dataset.alerta);
+    if(!/^\+?[\d\s-]{10,17}$/.test(tel)){ msg.textContent = 'Revisa el número: 10 dígitos (MX) o formato internacional con +.'; msg.style.color = 'var(--red-text)'; return; }
+    if(tipos.length === 0){ msg.textContent = 'Selecciona al menos un tipo de alerta.'; msg.style.color = 'var(--red-text)'; return; }
+    msg.textContent = 'Registrando…'; msg.style.color = 'var(--text-dim)';
+    const payload = { telefono: tel, tipos, sitios: sites.map(s => ({ nombre: s.name, lat: s.lat, lng: s.lng })) };
+    let resp = null;
+    try {
+      const r = await fetch('/api/suscribir', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(payload) });
+      resp = await r.json();
+      if(!r.ok){ msg.textContent = resp.error || 'No se pudo registrar. Intenta de nuevo.'; msg.style.color = 'var(--red-text)'; return; }
+    } catch(e){ /* sin red o preview local: guardamos local y sincroniza después */ }
+    alertasCfg = {
+      telefono: (resp && resp.telefono) || (tel.startsWith('+') ? tel : '+52' + tel.replace(/\D/g,'')),
+      tipos,
+      entregado: !!(resp && resp.ok),
+      ts: Date.now()
+    };
+    try { localStorage.setItem(ALERTAS_KEY, JSON.stringify(alertasCfg)); } catch(e){}
+    renderAlertas();
+  };
+}
+renderAlertas();
 
 // ── Parte operativo (texto plano al portapapeles) ───────────────────────
 function buildParteOperativo(){

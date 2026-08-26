@@ -66,6 +66,23 @@ python3 -m http.server 8000
 - **Semáforo de protestas**: actualización semanal por equipo Aleph
 - **Clima y riesgo**: fuentes en vivo listadas arriba
 
+## Motor integral (prototipo) — `motor/`
+
+Motor de fusión multi-señal que produce el **Nivel Operativo Integral** por objetivo (zona o sitio) en vocabulario de Protección Civil (VERDE/AMARILLA/NARANJA/ROJA), con evidencia y acción:
+
+```bash
+python3 motor/ejercicio.py --hoy                 # snapshot en vivo (79 ZMs + sitios demo)
+python3 motor/ejercicio.py --simulacro huracan   # ciclón sintético cat.4 → Acapulco
+python3 motor/ejercicio.py --simulacro observado # + respuesta institucional (piso)
+python3 motor/ejercicio.py --hoy --sombra        # appendea al log de modo sombra
+```
+
+Reglas de fusión: la peor señal creíble manda; lluvia sobre terreno vulnerable (puntos críticos CONAGUA / CENAPRED alto) escala un nivel; la respuesta institucional observada solo escala, nunca des-escala. Señales: física (Open-Meteo), ciclón (SIAT-CT estimado desde NHC), hidrología (GloFAS), observado (`motor/observados.json`, después Sonar). Salidas en `motor/out/` (evidencia completa + `sombra.jsonl` para medir precisión y anticipación). Solo stdlib de Python.
+
+## Alertas por WhatsApp
+
+En el panel "Mis sitios" el usuario registra su número y los tipos de alerta (ciclones SIAT naranja/roja, clima severo en sus sitios, crecidas, sismos M6+, check diario). El registro va a `api/suscribir.js` (Vercel Function), que valida, normaliza (+52) y reenvía al webhook central si `SUSCRIPCIONES_WEBHOOK` está configurado — ese webhook es el punto de integración con Hamilton/Sonar, donde correrá el motor y el envío real por WhatsApp. La configuración persiste en `localStorage`.
+
 ## Roadmap
 
 - Proxy ligero en Vercel Functions: cachear Open-Meteo (plan comercial), parsear avisos SMN/CONAGUA
