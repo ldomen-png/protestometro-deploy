@@ -11,17 +11,20 @@ export default async function handler(req, res) {
     res.setHeader('Allow', 'POST');
     return res.status(405).json({ ok: false, error: 'Solo POST' });
   }
-  const { telefono, tipos, sitios, nombre } = req.body || {};
+  const { telefono, regiones, sitios, nombre } = req.body || {};
   const tel = String(telefono || '').replace(/[^\d+]/g, '');
   if (!/^\+?\d{10,15}$/.test(tel)) {
     return res.status(400).json({ ok: false, error: 'Número inválido: usa 10 dígitos (MX) o formato internacional con +.' });
   }
-  if (!Array.isArray(tipos) || tipos.length === 0) {
-    return res.status(400).json({ ok: false, error: 'Selecciona al menos un tipo de alerta.' });
+  const REGIONES = ['Norte', 'Occidente', 'Centro', 'Sureste'];
+  const regs = Array.isArray(regiones) ? regiones.filter(r => REGIONES.includes(r)) : [];
+  if (regs.length === 0) {
+    return res.status(400).json({ ok: false, error: 'Selecciona al menos una región.' });
   }
+  // El protocolo define qué llega: cortes 07:00/16:00 + fichas naranja/roja.
   const registro = {
     telefono: tel.startsWith('+') ? tel : '+52' + tel,
-    tipos: tipos.slice(0, 10).map(String),
+    regiones: regs,
     sitios: Array.isArray(sitios) ? sitios.slice(0, 30) : [],
     nombre: String(nombre || '').slice(0, 80),
     ts: new Date().toISOString(),

@@ -1,0 +1,7 @@
+{
+  "_nota": "Las 4 regiones operativas del cliente (país dividido en cuatro, como describió Safety). Ajustar aquí cuando el cliente confirme su regionalización real — todo el corte se agrega con este mapa.",
+  "Norte": ["Baja California", "Sonora", "Chihuahua", "Coahuila de Zaragoza", "Nuevo León", "Tamaulipas", "Durango", "Zacatecas", "San Luis Potosí"],
+  "Occidente": ["Baja California Sur", "Sinaloa", "Nayarit", "Jalisco", "Colima", "Michoacán de Ocampo", "Aguascalientes", "Guanajuato"],
+  "Centro": ["Ciudad de México", "CDMX / Edomex", "CDMX / Edomex / Hidalgo", "México", "Hidalgo", "Morelos", "Puebla", "Tlaxcala", "Querétaro"],
+  "Sureste": ["Guerrero", "Oaxaca", "Chiapas", "Veracruz de Ignacio de la Llave", "Tabasco", "Campeche", "Yucatán", "Quintana Roo"]
+}

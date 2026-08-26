@@ -3170,26 +3170,25 @@ if(siteAddBtn) siteAddBtn.addEventListener('click', startAddSite);
 // El registro viaja a /api/suscribir (Vercel Function) que lo reenvía a la
 // central de alertamiento; la configuración vive también en localStorage
 // para mostrar el estado y poder modificarla.
-const ALERTAS_KEY = 'climometro_alertas_v1';
-const ALERTA_TIPOS = [
-  { id:'ciclones',   on:true,  label:'Ciclones — SIAT-CT naranja o roja',        sub:'Ficha de alerta y cambios de etapa' },
-  { id:'clima',      on:true,  label:'Clima severo en mis sitios',               sub:'Bandera roja: lluvia, ráfagas o calor extremo' },
-  { id:'crecidas',   on:false, label:'Crecidas fluviales',                       sub:'Descarga ≥2× la mediana mensual (GloFAS)' },
-  { id:'sismos',     on:false, label:'Sismos M6+ cerca de mis sitios',           sub:'USGS, radio 150 km' },
-  { id:'checkdiario',on:true,  label:'Check diario "todo en orden"',             sub:'07:00 y 16:00, aunque no haya alertas' }
-];
+// El protocolo define QUÉ llega (cortes 07:00/16:00 + fichas naranja/roja);
+// el usuario solo dice quién es, su número y qué regiones le tocan.
+const ALERTAS_KEY = 'climometro_alertas_v2';
+const REGIONES_ALERTA = ['Norte', 'Occidente', 'Centro', 'Sureste'];
 let alertasCfg = null;
-try { alertasCfg = JSON.parse(localStorage.getItem(ALERTAS_KEY) || 'null'); } catch(e){}
+try {
+  alertasCfg = JSON.parse(localStorage.getItem(ALERTAS_KEY) || 'null');
+  if(alertasCfg && !alertasCfg.regiones) alertasCfg = null; // formato viejo
+} catch(e){}
 function renderAlertas(){
   const el = document.getElementById('alertas-body');
   if(!el) return;
   if(alertasCfg){
-    const tipos = ALERTA_TIPOS.filter(t => alertasCfg.tipos.includes(t.id)).map(t => t.label);
     el.innerHTML =
       '<div style="padding:10px 12px;border:1px solid rgba(62,207,110,0.4);background:rgba(62,207,110,0.08);border-radius:6px;font-size:12px;line-height:1.6">'
       + '<b style="color:#7fdca4">● Alertas activas</b> para <b>'+escHTML(alertasCfg.telefono)+'</b>'
       + (alertasCfg.entregado ? '' : ' <span style="color:var(--text-dim)">(registro local — se sincroniza con la central)</span>')
-      + '<br><span style="color:rgba(255,255,255,0.7)">'+tipos.map(escHTML).join(' · ')+'</span>'
+      + '<br><span style="color:rgba(255,255,255,0.7)">Regiones: '+alertasCfg.regiones.map(escHTML).join(', ')+'</span>'
+      + '<br><span style="color:var(--text-dim)">Recibirás los cortes de 07:00 y 16:00, y fichas inmediatas solo en naranja o roja.</span>'
       + '</div>'
       + '<div style="display:flex;gap:8px;margin-top:8px">'
       + '<button type="button" id="alertas-edit" class="cl-toggle" style="flex:1;padding:6px">Modificar</button>'
@@ -3204,28 +3203,30 @@ function renderAlertas(){
     return;
   }
   const prev = arguments[0] || null;
-  const marcados = prev ? prev.tipos : ALERTA_TIPOS.filter(t => t.on).map(t => t.id);
+  const marcadas = prev ? prev.regiones : REGIONES_ALERTA.slice();
   el.innerHTML =
-    '<div style="font-size:11px;color:rgba(255,255,255,0.6);line-height:1.5;margin-bottom:8px">Recibe en tu WhatsApp solo lo accionable: fichas naranja/roja con contexto y sugerencia, listas para reenviar a tu equipo.</div>'
+    '<div style="font-size:11px;color:rgba(255,255,255,0.6);line-height:1.5;margin-bottom:8px">Dos cortes al día (07:00 y 16:00) con la situación de tus regiones, y ficha inmediata solo cuando algo cruza a <b style="color:#ff9530">naranja</b> o <b style="color:var(--red-text)">roja</b>. Nada más.</div>'
+    + '<input id="alertas-nombre" type="text" placeholder="Tu nombre" value="'+(prev ? escHTML(prev.nombre || '') : '')+'" '
+    + 'style="width:100%;padding:9px 11px;background:var(--bg-input);border:1px solid var(--border-strong);border-radius:6px;color:#fff;font-family:\'Inter\',sans-serif;font-size:13px;margin-bottom:6px" aria-label="Nombre">'
     + '<input id="alertas-tel" type="tel" inputmode="tel" placeholder="Número WhatsApp · 10 dígitos (MX) o +…" value="'+(prev ? escHTML(prev.telefono) : '')+'" '
-    + 'style="width:100%;padding:9px 11px;background:var(--bg-input);border:1px solid var(--border-strong);border-radius:6px;color:#fff;font-family:\'Inter\',sans-serif;font-size:13px;margin-bottom:6px" aria-label="Número de WhatsApp">'
-    + ALERTA_TIPOS.map(t =>
-        '<div class="cbox'+(marcados.includes(t.id) ? ' on' : '')+'" data-alerta="'+t.id+'" role="button" tabindex="0">'
-        + '<div class="cbox-square"></div>'
-        + '<div><div class="cbox-label">'+t.label+'</div><div class="field-sub">'+t.sub+'</div></div>'
-        + '</div>'
+    + 'style="width:100%;padding:9px 11px;background:var(--bg-input);border:1px solid var(--border-strong);border-radius:6px;color:#fff;font-family:\'Inter\',sans-serif;font-size:13px;margin-bottom:8px" aria-label="Número de WhatsApp">'
+    + '<div class="section-t" style="margin-bottom:4px">Tus regiones</div>'
+    + REGIONES_ALERTA.map(r =>
+        '<div class="cbox'+(marcadas.includes(r) ? ' on' : '')+'" data-region="'+r+'" role="button" tabindex="0" style="padding:5px 0">'
+        + '<div class="cbox-square"></div><div class="cbox-label">'+r+'</div></div>'
       ).join('')
     + '<button type="button" id="alertas-go" class="site-add-btn" style="margin-top:10px;border-style:solid">Activar alertas</button>'
     + '<div id="alertas-msg" style="font-size:10.5px;color:var(--text-dim);margin-top:6px;line-height:1.4"></div>';
-  el.querySelectorAll('[data-alerta]').forEach(c => c.addEventListener('click', () => c.classList.toggle('on')));
+  el.querySelectorAll('[data-region]').forEach(c => c.addEventListener('click', () => c.classList.toggle('on')));
   document.getElementById('alertas-go').onclick = async () => {
     const msg = document.getElementById('alertas-msg');
+    const nombre = document.getElementById('alertas-nombre').value.trim();
     const tel = document.getElementById('alertas-tel').value.trim();
-    const tipos = [...el.querySelectorAll('[data-alerta].on')].map(c => c.dataset.alerta);
+    const regiones = [...el.querySelectorAll('[data-region].on')].map(c => c.dataset.region);
     if(!/^\+?[\d\s-]{10,17}$/.test(tel)){ msg.textContent = 'Revisa el número: 10 dígitos (MX) o formato internacional con +.'; msg.style.color = 'var(--red-text)'; return; }
-    if(tipos.length === 0){ msg.textContent = 'Selecciona al menos un tipo de alerta.'; msg.style.color = 'var(--red-text)'; return; }
+    if(regiones.length === 0){ msg.textContent = 'Selecciona al menos una región.'; msg.style.color = 'var(--red-text)'; return; }
     msg.textContent = 'Registrando…'; msg.style.color = 'var(--text-dim)';
-    const payload = { telefono: tel, tipos, sitios: sites.map(s => ({ nombre: s.name, lat: s.lat, lng: s.lng })) };
+    const payload = { telefono: tel, nombre, regiones, sitios: sites.map(s => ({ nombre: s.name, lat: s.lat, lng: s.lng })) };
     let resp = null;
     try {
       const r = await fetch('/api/suscribir', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(payload) });
@@ -3234,7 +3235,8 @@ function renderAlertas(){
     } catch(e){ /* sin red o preview local: guardamos local y sincroniza después */ }
     alertasCfg = {
       telefono: (resp && resp.telefono) || (tel.startsWith('+') ? tel : '+52' + tel.replace(/\D/g,'')),
-      tipos,
+      nombre,
+      regiones,
       entregado: !!(resp && resp.ok),
       ts: Date.now()
     };

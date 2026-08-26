@@ -71,17 +71,19 @@ python3 -m http.server 8000
 Motor de fusión multi-señal que produce el **Nivel Operativo Integral** por objetivo (zona o sitio) en vocabulario de Protección Civil (VERDE/AMARILLA/NARANJA/ROJA), con evidencia y acción:
 
 ```bash
-python3 motor/ejercicio.py --hoy                 # snapshot en vivo (79 ZMs + sitios demo)
-python3 motor/ejercicio.py --simulacro huracan   # ciclón sintético cat.4 → Acapulco
+python3 motor/corte.py                           # EL PRODUCTO: mensaje del corte (2×/día)
+python3 motor/corte.py --simulacro huracan       # ensayo de ficha extraordinaria
+python3 motor/ejercicio.py --hoy                 # snapshot técnico con evidencia completa
 python3 motor/ejercicio.py --simulacro observado # + respuesta institucional (piso)
-python3 motor/ejercicio.py --hoy --sombra        # appendea al log de modo sombra
 ```
+
+`corte.py` implementa el caso de uso del cliente: agrega por sus 4 regiones (`motor/regiones.json`), corre la máquina de estados NORMAL → SEGUIMIENTO → ALERTA → CIERRE y emite el mensaje de WhatsApp según las plantillas canónicas de `motor/PLANTILLAS.md` (corte verde 2×/día; ficha extraordinaria solo al cruzar a naranja/roja; cierre explícito; el silencio está prohibido). La memoria de estado y la bitácora de modo sombra viven en `motor/out/`.
 
 Reglas de fusión: la peor señal creíble manda; lluvia sobre terreno vulnerable (puntos críticos CONAGUA / CENAPRED alto) escala un nivel; la respuesta institucional observada solo escala, nunca des-escala. Señales: física (Open-Meteo), ciclón (SIAT-CT estimado desde NHC), hidrología (GloFAS), observado (`motor/observados.json`, después Sonar). Salidas en `motor/out/` (evidencia completa + `sombra.jsonl` para medir precisión y anticipación). Solo stdlib de Python.
 
 ## Alertas por WhatsApp
 
-En el panel "Mis sitios" el usuario registra su número y los tipos de alerta (ciclones SIAT naranja/roja, clima severo en sus sitios, crecidas, sismos M6+, check diario). El registro va a `api/suscribir.js` (Vercel Function), que valida, normaliza (+52) y reenvía al webhook central si `SUSCRIPCIONES_WEBHOOK` está configurado — ese webhook es el punto de integración con Hamilton/Sonar, donde correrá el motor y el envío real por WhatsApp. La configuración persiste en `localStorage`.
+El protocolo define qué llega — cortes de 07:00 y 16:00, y fichas inmediatas solo en naranja/roja — así que el registro pide únicamente nombre, número y regiones (Norte/Occidente/Centro/Sureste). El registro va a `api/suscribir.js` (Vercel Function), que valida, normaliza (+52) y reenvía al webhook central si `SUSCRIPCIONES_WEBHOOK` está configurado — el punto de integración con Hamilton/Sonar, donde correrá el envío real por WhatsApp. La configuración persiste en `localStorage`.
 
 ## Roadmap
 
