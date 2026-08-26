@@ -374,6 +374,12 @@ html,body{height:100%;width:100%;overflow:hidden;font-family:'Inter',sans-serif;
 }
 .corr-zm:hover{background:rgba(228,194,73,0.18);border-color:rgba(228,194,73,0.4);}
 
+/* BANDERAS POR REGIÓN (el semáforo, lo primero que se ve) */
+.reg-flags{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:2px 0 12px;}
+.reg-flag{border-radius:6px;padding:7px 3px 6px;text-align:center;border:1.5px solid;}
+.rf-name{font-size:9px;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;opacity:0.9;}
+.rf-lvl{font-size:9.5px;font-weight:600;margin-top:2px;}
+
 /* DAY CHIPS (navegación de días en modo clima) */
 .day-chips{display:flex;gap:4px;width:100%;}
 .day-chip{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 2px;border:1px solid var(--border);border-radius:6px;cursor:pointer;background:rgba(255,255,255,0.03);transition:background .15s;touch-action:manipulation;}
@@ -858,6 +864,7 @@ canvas.wind-raster{
         <div class="panel-body">
           <div class="headline">
             <div class="hl-week" id="hl-week">ESTA SEMANA</div>
+            <div id="hl-regiones"></div>
             <div class="hl-text" id="hl-text">—</div>
             <div id="hl-fresh" style="font-size:9px;color:var(--text-dim);margin-top:8px;letter-spacing:0.03em;display:flex;align-items:center;gap:8px;flex-wrap:wrap"></div>
             <div id="parte-btns" style="display:none;margin-top:10px;gap:6px" class="parte-row">
@@ -971,14 +978,14 @@ canvas.wind-raster{
                 <div class="field-label">Lluvia (malla nacional)</div>
                 <div class="field-sub">Precipitación acumulada del día · Open-Meteo</div>
               </div>
-              <div class="toggle on" data-tg="rain" role="button" tabindex="0"></div>
+              <div class="toggle" data-tg="rain" role="button" tabindex="0"></div>
             </div>
             <div class="field-row">
               <div>
                 <div class="field-label">Viento (partículas)</div>
                 <div class="field-sub">Dirección dominante y velocidad máxima</div>
               </div>
-              <div class="toggle on" data-tg="wind" role="button" tabindex="0" id="capas-wind-toggle"></div>
+              <div class="toggle" data-tg="wind" role="button" tabindex="0" id="capas-wind-toggle"></div>
             </div>
             <div class="field-row">
               <div>
@@ -1065,7 +1072,7 @@ canvas.wind-raster{
       </div>
       <!-- Clima legend (only shown in clima mode) -->
       <div id="clima-legend">
-        <div class="cl-row">
+        <div class="cl-row" id="cl-row-lluvia" style="display:none">
           <span class="cl-label">Lluvia</span>
           <div>
             <div class="cl-bar"></div>
@@ -1075,7 +1082,7 @@ canvas.wind-raster{
         <div class="cl-row" style="margin-top:7px;align-items:center;">
           <span class="cl-label">Viento</span>
           <div class="cl-wind">
-            <button id="wind-toggle" class="cl-toggle on" type="button">ON</button>
+            <button id="wind-toggle" class="cl-toggle" type="button">OFF</button>
             <span class="cl-wind-key"><i style="background:#28282e"></i>&lt;20</span>
             <span class="cl-wind-key"><i style="background:#a78117"></i>20–40</span>
             <span class="cl-wind-key"><i style="background:#c8721c"></i>40–60</span>
@@ -1341,7 +1348,9 @@ function currentWeekIdx(){
 }
 let wk = currentWeekIdx();
 let sel = null;
-let layerVis = {hex:true, corr:true, labels:true, rain:true, cyclones:true, quakes:true, histflood:false, histtracks:false, histpuntos:false, histagua:false};
+// Al entrar se ve EL SEMÁFORO: lluvia y viento son capas de análisis,
+// apagadas por defecto (la malla nacional ni se descarga hasta pedirla).
+let layerVis = {hex:true, corr:true, labels:true, rain:false, cyclones:true, quakes:true, histflood:false, histtracks:false, histpuntos:false, histagua:false};
 let filterVis = {alert:true, historic:true, none:false};
 let corrTypeVis = {cuota:true, libre:true};
 let highlightedCorridors = new Set();
@@ -1365,7 +1374,7 @@ let gridWeatherInflight = null;
 let gridWeatherFetchedAt = null;
 let gridLoadStatus = null;    // texto de progreso de la malla (carga en 2º plano)
 let gridCoveragePct = null;   // % de celdas obtenidas — visible si <95
-let windLayerEnabled = true;
+let windLayerEnabled = false;
 // Mapbox style is loaded asynchronously — refresh* needs to wait. Set to true
 // inside map.on('load'). Anything that mutates layer data short-circuits if false.
 let mapReady = false;
@@ -1631,6 +1640,33 @@ function playbookFor(level, cat){
 function climaLevelFromDay(rainMm, windKmh, gustKmh, tmaxC, code){
   return climaDayRisk(rainMm, windKmh, gustKmh, tmaxC, code).level;
 }
+
+// Carga perezosa de la malla nacional: solo cuando alguien enciende lluvia o
+// viento. Pinta las capas al terminar, respetando los toggles vigentes.
+function ensureGrid(){
+  if(gridWeatherData){ _pintarGrid(); return Promise.resolve(gridWeatherData); }
+  const p = loadGridWeather((info) => {
+    if(info.phase === 'fetch') gridLoadStatus = 'lote '+info.current+'/'+info.total;
+    else if(info.phase === 'fill') gridLoadStatus = 'rellenando '+info.current+'/'+info.total;
+    updateClimaFreshness();
+  });
+  p.then(grid => {
+    gridLoadStatus = null;
+    if(grid) gridCoveragePct = Math.round(grid.length / generateMexicoGrid().length * 100);
+    _pintarGrid();
+    updateClimaFreshness();
+  });
+  return p;
+}
+function _pintarGrid(){
+  if(!mapReady || mode !== 'clima' || !gridWeatherData) return;
+  RainCanvasSource.setData(gridWeatherData);
+  RainCanvasSource.setDayIdx(wk);
+  setLayerVis('rain-raster', layerVis.rain);
+  WindOverlay.setData(gridWeatherData);
+  WindOverlay.setDayIdx(wk);
+  if(windLayerEnabled) WindOverlay.mount(map); else WindOverlay.unmount();
+}
 function recomputeZMStats(){
   ZONAS.forEach(z => { z.alertas = z.semanas.filter(v=>v>0).length; z.max = Math.max(...z.semanas); });
 }
@@ -1773,6 +1809,42 @@ function stormNearMexico(s){
 }
 const ktToKmh = kt => kt == null ? null : Math.round(kt * 1.852);
 const STORM_TYPE_ES = { TD:'Depresión tropical', TS:'Tormenta tropical', HU:'Huracán', MH:'Huracán mayor', STD:'Depresión subtropical', STS:'Tormenta subtropical', PTC:'Ciclón post-tropical' };
+
+// ── Las 4 regiones operativas del cliente (espejo de motor/regiones.json) ──
+const REGIONES_OPS = ['Norte', 'Occidente', 'Centro', 'Sureste'];
+const REGION_DE_ESTADO = (() => {
+  const m = {
+    Norte: ['Baja California', 'Sonora', 'Chihuahua', 'Coahuila de Zaragoza', 'Nuevo León', 'Tamaulipas', 'Durango', 'Zacatecas', 'San Luis Potosí'],
+    Occidente: ['Baja California Sur', 'Sinaloa', 'Nayarit', 'Jalisco', 'Colima', 'Michoacán de Ocampo', 'Aguascalientes', 'Guanajuato'],
+    Centro: ['Ciudad de México', 'CDMX / Edomex', 'CDMX / Edomex / Hidalgo', 'México', 'Hidalgo', 'Morelos', 'Puebla', 'Tlaxcala', 'Querétaro'],
+    Sureste: ['Guerrero', 'Oaxaca', 'Chiapas', 'Veracruz de Ignacio de la Llave', 'Tabasco', 'Campeche', 'Yucatán', 'Quintana Roo']
+  };
+  const out = {};
+  Object.entries(m).forEach(([r, ests]) => ests.forEach(e => { out[e] = r; }));
+  return out;
+})();
+// Bandera por región (misma escala del corte): 0 verde, 1 amarilla, 2 naranja, 3 roja
+const BANDERA_META = [
+  { n:'Sin alerta',  c:'#3ecf6e' },
+  { n:'Vigilancia',  c:'#e4c249' },
+  { n:'Actúa',       c:'#ff9530' },
+  { n:'Emergencia',  c:'#e03020' }
+];
+function banderasPorRegion(){
+  const niveles = {};
+  REGIONES_OPS.forEach(r => { niveles[r] = 0; });
+  ZONAS.forEach(z => {
+    const reg = REGION_DE_ESTADO[z.estado] || 'Centro';
+    let n = Math.min(2, z.semanas[wk] || 0); // física: máx NARANJA
+    const s = siatForPoint(z.lat, z.lng);
+    if(s){
+      if(s.meta.rank >= 5) n = 3;
+      else if(s.meta.rank === 4) n = Math.max(n, 2);
+    }
+    if(n > niveles[reg]) niveles[reg] = n;
+  });
+  return niveles;
+}
 
 // ── SIAT-CT ESTIMADO ────────────────────────────────────────────────────
 // Matriz oficial de acercamiento del Sistema de Alerta Temprana para
@@ -2468,13 +2540,15 @@ function toggleWindLayer(){
   if(btn){ btn.classList.toggle('on', windLayerEnabled); btn.textContent = windLayerEnabled ? 'ON' : 'OFF'; btn.setAttribute('aria-pressed', String(windLayerEnabled)); }
   const capasBtn = document.getElementById('capas-wind-toggle');
   if(capasBtn){ capasBtn.classList.toggle('on', windLayerEnabled); capasBtn.setAttribute('aria-pressed', String(windLayerEnabled)); }
+  updateLegendRows();
   if(!mapReady || mode !== 'clima') return;
-  if(windLayerEnabled){
-    WindOverlay.mount(map);
-    if(gridWeatherData){ WindOverlay.setData(gridWeatherData); WindOverlay.setDayIdx(wk); }
-  } else {
-    WindOverlay.unmount();
-  }
+  if(windLayerEnabled) ensureGrid();
+  else WindOverlay.unmount();
+}
+// La leyenda solo muestra las escalas de capas encendidas.
+function updateLegendRows(){
+  const lluviaRow = document.getElementById('cl-row-lluvia');
+  if(lluviaRow) lluviaRow.style.display = layerVis.rain ? 'flex' : 'none';
 }
 function setLayerVis(id, on){
   if(!mapReady || !map.getLayer(id)) return;
@@ -2791,25 +2865,8 @@ async function setMode(newMode){
       applyZonaCirclePaint();
       refreshRiskLayers();
     }
-    loadGridWeather((info) => {
-      if(info.phase === 'fetch') gridLoadStatus = 'lote '+info.current+'/'+info.total;
-      else if(info.phase === 'fill') gridLoadStatus = 'rellenando '+info.current+'/'+info.total;
-    }).then(grid => {
-      gridLoadStatus = null;
-      if(grid){
-        const totalCells = generateMexicoGrid().length;
-        gridCoveragePct = Math.round(grid.length / totalCells * 100);
-      }
-      if(mapReady && mode === 'clima' && gridWeatherData){
-        RainCanvasSource.setData(gridWeatherData);
-        RainCanvasSource.setDayIdx(wk);
-        setLayerVis('rain-raster', layerVis.rain);
-        WindOverlay.setData(gridWeatherData);
-        WindOverlay.setDayIdx(wk);
-        if(windLayerEnabled) WindOverlay.mount(map); else WindOverlay.unmount();
-      }
-      updateClimaFreshness();
-    });
+    // La malla nacional ya NO se descarga al entrar: solo cuando el usuario
+    // enciende la capa de lluvia o viento (ensureGrid).
     processClimaZones(data);
     wk = 0;
     initSites();
@@ -3395,7 +3452,9 @@ document.querySelectorAll('[data-tg]').forEach(t => {
     }
     if(layer === 'histagua'){ refreshHistLayers(); return; }
     if(layer === 'rain'){
-      if(mapReady && mode === 'clima') setLayerVis('rain-raster', layerVis.rain);
+      if(layerVis.rain) ensureGrid();
+      else if(mapReady) setLayerVis('rain-raster', false);
+      updateLegendRows();
       return;
     }
     if(map) refreshMap();
@@ -3620,8 +3679,8 @@ function refreshHexClima(){
       WindOverlay.setData(gridWeatherData);
       WindOverlay.setDayIdx(wk);
     }
-  } else {
-    console.warn('refreshHexClima: gridWeatherData is null — fetch likely failed');
+  } else if(layerVis.rain || windLayerEnabled){
+    console.warn('refreshHexClima: la malla aún no carga');
   }
   updateClimaFreshness();
   const zonasSrc = map.getSource('zonas');
@@ -3768,6 +3827,22 @@ function renderAll(){
   document.getElementById('wlbl-r').textContent = ds;
   document.getElementById('hl-week').textContent = periodPrefix + fmtDUpper(SEMANAS[wk]);
   document.getElementById('fh-week').textContent = periodPrefix + fmtDUpper(SEMANAS[wk]);
+
+  // Banderas por región — EL semáforo, lo primero que se lee
+  const regEl = document.getElementById('hl-regiones');
+  if(regEl){
+    if(isClima){
+      const niveles = banderasPorRegion();
+      regEl.innerHTML = '<div class="reg-flags">' + REGIONES_OPS.map(r => {
+        const m = BANDERA_META[niveles[r]];
+        return '<div class="reg-flag" style="border-color:'+m.c+'66;background:'+m.c+'14">'
+          + '<div class="rf-name" style="color:'+m.c+'">'+r+'</div>'
+          + '<div class="rf-lvl" style="color:'+m.c+'">'+m.n+'</div></div>';
+      }).join('') + '</div>';
+    } else {
+      regEl.innerHTML = '';
+    }
+  }
 
   // Headline: structured for panel, compact for mobile float
   document.getElementById('hl-text').innerHTML = buildHeadline(wk, false);
